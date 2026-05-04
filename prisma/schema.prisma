@@ -1,0 +1,53 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model University {
+  id       String   @id @default(cuid())
+  name     String
+  location String
+  type     String   // "PUBLIC" or "PRIVATE"
+  careers  Career[]
+}
+
+model Area {
+  id      String   @id @default(cuid())
+  name    String
+  careers Career[]
+}
+
+model Career {
+  id            String      @id @default(cuid())
+  name          String
+  durationYears Int
+  degreeTitle   String
+  universityId  String
+  areaId        String
+  university    University  @relation(fields: [universityId], references: [id])
+  area          Area        @relation(fields: [areaId], references: [id])
+  studyPlan     StudyPlan[]
+  reviews       Review[]
+}
+
+model StudyPlan {
+  id       String @id @default(cuid())
+  name     String
+  year     Int
+  careerId String
+  career   Career @relation(fields: [careerId], references: [id])
+}
+
+model Review {
+  id         String   @id @default(cuid())
+  rating     Int
+  content    String
+  authorName String?
+  careerId   String
+  career     Career   @relation(fields: [careerId], references: [id])
+  createdAt  DateTime @default(now())
+}
