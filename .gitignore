@@ -39,3 +39,5 @@ prisma/dev.db-journal
 
 # claude
 .claude/
+
+/lib/generated/prisma
