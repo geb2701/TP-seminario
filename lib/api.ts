@@ -3,27 +3,11 @@ import { useQuery, useMutation, UseQueryOptions, UseMutationOptions } from '@tan
 
 // Configurar ky con la URL base
 export const api = ky.create({
-  prefixUrl: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api',
+  prefix: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api',
   timeout: 30000,
   retry: {
     limit: 2,
     methods: ['get', 'head', 'put', 'delete', 'options', 'trace'],
-  },
-  hooks: {
-    beforeRequest: [
-      (request) => {
-        // Aquí puedes agregar headers personalizados, token, etc.
-        console.log(`🚀 ${request.method} ${request.url}`);
-      },
-    ],
-    afterResponse: [
-      (_request, _options, response) => {
-        // Log de respuestas
-        if (response.ok) {
-          console.log(`✅ Respuesta exitosa: ${response.status}`);
-        }
-      },
-    ],
   },
 });
 

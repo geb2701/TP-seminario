@@ -142,28 +142,28 @@ export default function ComparePage() {
                 </th>
                 {isLoading
                   ? selectedIds.map((id) => (
-                      <th key={id} className="py-3 px-4 min-w-[220px]">
-                        <Skeleton className="h-5 w-3/4" />
-                      </th>
-                    ))
+                    <th key={id} className="py-3 px-4 min-w-[220px]">
+                      <Skeleton className="h-5 w-3/4" />
+                    </th>
+                  ))
                   : compared?.map((career) => (
-                      <th key={career.id} className="text-left py-3 px-4 min-w-[220px]">
-                        <div className="flex items-start justify-between gap-2">
-                          <div>
-                            <p className="font-semibold">{career.name}</p>
-                            <p className="text-xs font-normal text-muted-foreground mt-0.5">
-                              {career.university.name}
-                            </p>
-                          </div>
-                          <button
-                            onClick={() => removeCareer(career.id)}
-                            className="text-muted-foreground hover:text-destructive shrink-0 mt-0.5"
-                          >
-                            <X className="h-4 w-4" />
-                          </button>
+                    <th key={career.id} className="text-left py-3 px-4 min-w-[220px]">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="font-semibold">{career.name}</p>
+                          <p className="text-xs font-normal text-muted-foreground mt-0.5">
+                            {career.university.name}
+                          </p>
                         </div>
-                      </th>
-                    ))}
+                        <button
+                          onClick={() => removeCareer(career.id)}
+                          className="text-muted-foreground hover:text-destructive shrink-0 mt-0.5"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </th>
+                  ))}
               </tr>
             </thead>
             <tbody>
@@ -174,15 +174,15 @@ export default function ComparePage() {
                   </td>
                   {isLoading
                     ? selectedIds.map((id) => (
-                        <td key={id} className="py-3 px-4">
-                          <Skeleton className="h-4 w-3/4" />
-                        </td>
-                      ))
+                      <td key={id} className="py-3 px-4">
+                        <Skeleton className="h-4 w-3/4" />
+                      </td>
+                    ))
                     : compared?.map((career) => (
-                        <td key={career.id} className="py-3 px-4">
-                          {row.render(career)}
-                        </td>
-                      ))}
+                      <td key={career.id} className="py-3 px-4">
+                        {row.render(career)}
+                      </td>
+                    ))}
                 </tr>
               ))}
             </tbody>
