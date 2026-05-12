@@ -1,18 +1,22 @@
 "use client"
 
 import { useState } from "react"
+import Link from "next/link"
 import { useApiQuery } from "@/lib/api"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { cn } from "@/lib/utils"
 import { Search, MapPin, Users, Clock, Bookmark, BookmarkCheck } from "lucide-react"
 import { useSavedCareers } from "@/app/mis-carreras/page"
 
+// Area disponible para filtrar el listado de carreras.
 type Area = { id: string; name: string }
 
+// Estructura de cada carrera tal como llega desde GET /api/careers.
 type Career = {
   id: string
   name: string
@@ -33,33 +37,49 @@ const MODALITY_LABEL: Record<Career["modality"], string> = {
 }
 
 export default function CarrerasPage() {
+  // Hook local para guardar/quitar carreras en favoritos del usuario.
   const { isSaved, save, remove } = useSavedCareers()
+
+  // Estado de filtros en UI.
   const [search, setSearch] = useState("")
   const [modality, setModality] = useState("todos")
   const [areaId, setAreaId] = useState("todos")
 
+  // Construye los query params segun los filtros activos.
+  // Si un filtro esta en "todos", no se envia para mantener la consulta limpia.
   const careerParams = new URLSearchParams()
   if (search) careerParams.set("search", search)
   if (modality !== "todos") careerParams.set("modality", modality)
   if (areaId !== "todos") careerParams.set("areaId", areaId)
 
+  // Consulta principal de carreras. Se vuelve a ejecutar cuando cambia
+  // alguno de los filtros (search, modality, areaId).
   const { data: careers, isLoading, isError } = useApiQuery<Career[]>(
     ["careers", search, modality, areaId],
     `careers?${careerParams.toString()}`
   )
 
+  // Catálogo de áreas para poblar el select de filtro.
   const { data: areas } = useApiQuery<Area[]>(["areas"], "areas")
+
+  // Nombre legible del area seleccionada para mostrar en el trigger.
+  // Evita que el Select muestre el id tecnico.
+  const selectedAreaName =
+    areaId === "todos"
+      ? "Todas las áreas"
+      : areas?.find((area) => area.id === areaId)?.name ?? "Área"
 
   return (
     <div className="space-y-8 p-6 lg:p-8">
       <section className="space-y-4">
         <h1 className="text-3xl font-bold">Explorar Carreras</h1>
         <p className="text-muted-foreground">
-          Encontrá y comparé carreras universitarias en Argentina
+          Encontrá y compará carreras universitarias en Argentina
         </p>
       </section>
 
       <section className="grid gap-4 md:grid-cols-4">
+        {/* Input de texto para filtrar por nombre de carrera */}
         <div className="relative md:col-span-2">
           <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -69,20 +89,24 @@ export default function CarrerasPage() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
+
+        {/* Filtro por modalidad */}
         <Select value={modality} onValueChange={(v) => setModality(v ?? "todos")}>
           <SelectTrigger>
-            <SelectValue placeholder="Modalidad" />
+            <SelectValue placeholder="Todos" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="todos">Todas las modalidades</SelectItem>
+            <SelectItem value="todos">Todos</SelectItem>
             <SelectItem value="PRESENCIAL">Presencial</SelectItem>
             <SelectItem value="HIBRIDO">Híbrido</SelectItem>
             <SelectItem value="ONLINE">Online</SelectItem>
           </SelectContent>
         </Select>
+
+        {/* Filtro por area academica */}
         <Select value={areaId} onValueChange={(v) => setAreaId(v ?? "todos")}>
           <SelectTrigger>
-            <SelectValue placeholder="Área" />
+            <SelectValue placeholder="Área">{selectedAreaName}</SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="todos">Todas las áreas</SelectItem>
@@ -95,12 +119,14 @@ export default function CarrerasPage() {
         </Select>
       </section>
 
+      {/* Estado de error global de la consulta */}
       {isError && (
         <p className="text-sm text-destructive">Error al cargar carreras.</p>
       )}
 
       <section className="grid gap-4 md:grid-cols-2">
         {isLoading
+          // Skeleton mientras se obtiene la lista desde la API
           ? Array.from({ length: 6 }).map((_, i) => (
               <Card key={i}>
                 <CardHeader>
@@ -118,6 +144,7 @@ export default function CarrerasPage() {
                 </CardContent>
               </Card>
             ))
+          // Render real de cards una vez cargados los datos
           : careers?.map((career) => (
               <Card key={career.id} className="hover:shadow-lg transition-shadow">
                 <CardHeader>
@@ -152,10 +179,11 @@ export default function CarrerasPage() {
                     </div>
                   </div>
                   <div className="flex gap-2">
-                    <Button className="flex-1">Ver detalles</Button>
+                    <Link href={`/carreras/${career.id}`} className={cn(buttonVariants(), "flex-1")}>Ver detalles</Link>
                     <Button
                       variant="outline"
                       size="icon"
+                      // Toggle de guardado en la lista personal del usuario
                       onClick={() => isSaved(career.id) ? remove(career.id) : save(career.id)}
                       title={isSaved(career.id) ? "Quitar de mis carreras" : "Guardar carrera"}
                     >
@@ -169,6 +197,7 @@ export default function CarrerasPage() {
             ))}
       </section>
 
+          {/* Estado vacio cuando no hay resultados con los filtros actuales */}
       {!isLoading && careers?.length === 0 && (
         <p className="text-center text-muted-foreground py-12">
           No se encontraron carreras con esos filtros.

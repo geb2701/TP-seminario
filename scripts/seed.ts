@@ -8,6 +8,24 @@ const adapter = new PrismaLibSql({
 });
 const prisma = new PrismaClient({ adapter });
 
+function getSubjectsForYear(careerName: string, year: number): string[] {
+  const commonByYear: Record<number, string[]> = {
+    1: ["Introducción a la Vida Universitaria", "Metodología de Estudio", "Comunicación Académica"],
+    2: ["Estadística Aplicada", "Ética Profesional", "Herramientas Digitales"],
+    3: ["Investigación Aplicada", "Gestión de Proyectos", "Práctica Profesional I"],
+    4: ["Seminario de Integración", "Práctica Profesional II", "Taller de Innovación"],
+    5: ["Trabajo Final", "Práctica Supervisada", "Electiva de Especialización"],
+  };
+
+  const base = commonByYear[year] ?? ["Seminario Optativo", "Práctica Profesional", "Trabajo Integrador"];
+
+  return [
+    `${careerName}: Fundamentos ${year}`,
+    `${careerName}: Taller ${year}`,
+    ...base,
+  ];
+}
+
 async function main() {
   console.log("Limpiando datos existentes...");
   await prisma.careerReview.deleteMany();
@@ -46,7 +64,7 @@ async function main() {
     prisma.university.create({
       data: {
         name: "Universidad de Buenos Aires",
-        city: "Buenos Aires",
+        city: "CABA",
         province: "Buenos Aires",
         type: "PUBLIC",
         website: "https://www.uba.ar",
@@ -58,7 +76,7 @@ async function main() {
     prisma.university.create({
       data: {
         name: "Universidad Nacional de La Plata",
-        city: "La Plata",
+        city: "CABA",
         province: "Buenos Aires",
         type: "PUBLIC",
         website: "https://www.unlp.edu.ar",
@@ -82,7 +100,7 @@ async function main() {
     prisma.university.create({
       data: {
         name: "Universidad Tecnológica Nacional",
-        city: "Buenos Aires",
+        city: "CABA",
         province: "Buenos Aires",
         type: "PUBLIC",
         website: "https://www.utn.edu.ar",
@@ -118,7 +136,7 @@ async function main() {
     prisma.university.create({
       data: {
         name: "Universidad Torcuato Di Tella",
-        city: "Buenos Aires",
+        city: "CABA",
         province: "Buenos Aires",
         type: "PRIVATE",
         website: "https://www.utdt.edu",
@@ -130,7 +148,7 @@ async function main() {
     prisma.university.create({
       data: {
         name: "Pontificia Universidad Católica Argentina",
-        city: "Buenos Aires",
+        city: "CABA",
         province: "Buenos Aires",
         type: "PRIVATE",
         website: "https://www.uca.edu.ar",
@@ -533,6 +551,36 @@ async function main() {
     }),
   ]);
 
+  console.log("Creando planes de estudio...");
+  let studyPlansCount = 0;
+  let subjectsCount = 0;
+
+  for (const career of careers) {
+    const maxYear = career.durationYears;
+
+    for (let year = 1; year <= maxYear; year++) {
+      const subjects = getSubjectsForYear(career.name, year);
+
+      await prisma.studyPlan.create({
+        data: {
+          name: `Plan ${career.name} - ${year}° año`,
+          year,
+          careerId: career.id,
+          subjects: {
+            create: subjects.map((name, index) => ({
+              name,
+              year,
+              semester: (index % 2) + 1,
+            })),
+          },
+        },
+      });
+
+      studyPlansCount += 1;
+      subjectsCount += subjects.length;
+    }
+  }
+
   console.log("Creando reseñas...");
   const reviewsData = [
     {
@@ -606,6 +654,8 @@ async function main() {
   console.log(`  - ${areas.length} áreas`);
   console.log(`  - ${universities.length} universidades`);
   console.log(`  - ${careers.length} carreras`);
+  console.log(`  - ${studyPlansCount} planes de estudio`);
+  console.log(`  - ${subjectsCount} materias`);
   console.log(`  - ${reviewsData.reduce((a, r) => a + r.reviews.length, 0) + universityReviewsData.reduce((a, r) => a + r.reviews.length, 0)} reseñas`);
 }
 
