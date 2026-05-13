@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { X, Plus, Trash2 } from "lucide-react"
+import { X, Plus, Trash2, Search } from "lucide-react"
 import { EmptyState } from "@/components/empty-state"
 import { ErrorState } from "@/components/error-state"
 import { Input } from "@/components/ui/input"
@@ -14,7 +14,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { cn } from "@/lib/utils"
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
-import { X, Plus, Trash2, Search } from "lucide-react"
 import { useQuery } from "@tanstack/react-query"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Cell } from "recharts"
 import { useCompareCareers } from "@/hooks/use-compare-careers"
@@ -255,6 +254,8 @@ export default function ComparePage() {
           description="Ocurrió un error al obtener los detalles de las carreras."
           onRetry={refetch}
         />
+      )}
+
       {/* Search panel */}
       {canAdd && (
         <Accordion defaultValue={["add"]}>
