@@ -1,6 +1,5 @@
 "use client"
 
-import * as React from "react"
 import {
   BookOpen,
   Compass,
@@ -22,6 +21,7 @@ import {
 } from "@/components/ui/sidebar"
 import Link from "next/link"
 import { useDebugState } from "@/components/providers"
+import { GlobalSearch } from "@/components/global-search"
 
 const data = {
   navMain: [
@@ -133,6 +133,10 @@ export function AppSidebar() {
         </div>
       </SidebarFooter>
       {/* ===================================================== */}
+
+      <div className="px-3 pb-3 md:hidden">
+        <GlobalSearch variant="inline" />
+      </div>
 
     </Sidebar>
   )
