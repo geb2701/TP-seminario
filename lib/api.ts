@@ -15,7 +15,7 @@ export const api = ky.create({
 export function useApiQuery<T>(
   key: string | string[],
   url: string,
-  options?: UseQueryOptions<T>
+  options?: Omit<UseQueryOptions<T>, 'queryKey' | 'queryFn'>
 ) {
   return useQuery<T>({
     queryKey: Array.isArray(key) ? key : [key],
