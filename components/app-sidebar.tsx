@@ -24,23 +24,23 @@ import Link from "next/link"
 const data = {
   navMain: [
     {
-      title: "Dashboard",
+      title: "Inicio",
       url: "/",
       icon: Home,
       isActive: true,
     },
     {
-      title: "Explorar Carreras",
+      title: "Explorar carreras",
       url: "/carreras",
       icon: Compass,
     },
     {
-      title: "Mis Carreras",
+      title: "Mis carreras",
       url: "/mis-carreras",
       icon: BookOpen,
     },
     {
-      title: "Comparar",
+      title: "Comparar carreras",
       url: "/comparar",
       icon: BarChart3,
     },

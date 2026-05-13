@@ -72,7 +72,7 @@ export default function CarrerasPage() {
   return (
     <div className="space-y-8 p-6 lg:p-8">
       <section className="space-y-4">
-        <h1 className="text-3xl font-bold">Explorar Carreras</h1>
+        <h1 className="text-3xl font-bold">Explorar carreras</h1>
         <p className="text-muted-foreground">
           Encontrá y compará carreras universitarias en Argentina
         </p>
@@ -83,7 +83,7 @@ export default function CarrerasPage() {
         <div className="relative md:col-span-2">
           <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Buscar carrera..."
+            placeholder="Buscar carreras..."
             className="pl-8"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -93,10 +93,10 @@ export default function CarrerasPage() {
         {/* Filtro por modalidad */}
         <Select value={modality} onValueChange={(v) => setModality(v ?? "todos")}>
           <SelectTrigger>
-            <SelectValue placeholder="Todos" />
+            <SelectValue placeholder="Modalidad" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="todos">Todos</SelectItem>
+            <SelectItem value="todos">Todas las modalidades</SelectItem>
             <SelectItem value="PRESENCIAL">Presencial</SelectItem>
             <SelectItem value="HIBRIDO">Híbrido</SelectItem>
             <SelectItem value="ONLINE">Online</SelectItem>
@@ -185,7 +185,7 @@ export default function CarrerasPage() {
                       size="icon"
                       // Toggle de guardado en la lista personal del usuario
                       onClick={() => isSaved(career.id) ? remove(career.id) : save(career.id)}
-                      title={isSaved(career.id) ? "Quitar de mis carreras" : "Guardar carrera"}
+                      title={isSaved(career.id) ? "Quitar de mis carreras" : "Guardar en mis carreras"}
                     >
                       {isSaved(career.id)
                         ? <BookmarkCheck className="h-4 w-4 text-primary" />

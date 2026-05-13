@@ -88,9 +88,9 @@ export default function ComparePage() {
   return (
     <div className="space-y-8 p-6 lg:p-8">
       <section className="space-y-2">
-        <h1 className="text-3xl font-bold">Comparador de Carreras</h1>
+        <h1 className="text-3xl font-bold">Comparador de carreras</h1>
         <p className="text-muted-foreground">
-          Comparás hasta {MAX_CAREERS} carreras lado a lado
+          Compará hasta {MAX_CAREERS} carreras lado a lado.
         </p>
       </section>
 
