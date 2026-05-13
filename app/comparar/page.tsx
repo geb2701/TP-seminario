@@ -5,7 +5,7 @@ import { useApiQuery, api } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select"
 import { X, Plus, Trash2, Search } from "lucide-react"
 import { EmptyState } from "@/components/empty-state"
 import { ErrorState } from "@/components/error-state"
@@ -269,36 +269,14 @@ export default function ComparePage() {
         </p>
       </section>
 
-      <section className="flex items-center gap-3">
-        <Select
-          value={pickerValue}
-          onValueChange={(v) => { const val = v ?? ""; setPickerValue(val); addCareer(val) }}
-          disabled={selectedIds.length >= MAX_CAREERS}
-        >
-          <SelectTrigger className="w-96">
-            <SelectValue
-              placeholder={
-                selectedIds.length >= MAX_CAREERS
-                  ? "Máximo alcanzado"
-                  : "Agregar carrera para comparar..."
-              }
-            />
-          </SelectTrigger>
-          <SelectContent>
-            {availableToAdd?.map((c) => (
-              <SelectItem key={c.id} value={c.id}>
-                {c.name} — {c.university.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {selectedIds.length > 0 && (
+      {selectedIds.length > 0 && (
+        <div className="flex justify-end">
           <Button variant="destructive" onClick={clear} className="shrink-0">
             <Trash2 className="h-4 w-4 mr-2" />
-            Limpiar
+            Limpiar selección
           </Button>
-        )}
-      </section>
+        </div>
+      )}
 
       {selectedIds.length === 0 && (
         <EmptyState
