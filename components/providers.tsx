@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import { ThemeProvider } from 'next-themes';
 import { ReactNode } from 'react';
+import { BreadcrumbProvider } from '@/components/breadcrumb-context';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -23,9 +24,11 @@ export function Providers({ children }: { children: ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-        <SidebarProvider>
-          {children}
-        </SidebarProvider>
+        <BreadcrumbProvider>
+          <SidebarProvider>
+            {children}
+          </SidebarProvider>
+        </BreadcrumbProvider>
       </ThemeProvider>
     </QueryClientProvider>
   );
