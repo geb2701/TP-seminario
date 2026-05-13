@@ -56,11 +56,11 @@ const data = {
       url: "/universidades",
       icon: GraduationCap,
     },
-    {
-      title: "Comunidad",
-      url: "/comunidad",
-      icon: Users,
-    },
+    // {
+    //   title: "Comunidad",
+    //   url: "/comunidad",
+    //   icon: Users,
+    // },
   ],
 }
 
