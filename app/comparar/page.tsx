@@ -224,13 +224,36 @@ export default function ComparePage() {
 
   return (
     <div className="space-y-8 p-6 lg:p-8">
-      <section className="flex items-start justify-between gap-4">
-        <div className="space-y-1">
-          <h1 className="text-3xl font-bold">Comparador de Carreras</h1>
-          <p className="text-muted-foreground">
-            Comparás hasta {MAX_CAREERS} carreras
-          </p>
-        </div>
+      <section className="space-y-2">
+        <h1 className="text-3xl font-bold">Comparador de carreras</h1>
+        <p className="text-muted-foreground">
+          Compará hasta {MAX_CAREERS} carreras lado a lado.
+        </p>
+      </section>
+
+      <section className="flex items-center gap-3">
+        <Select
+          value={pickerValue}
+          onValueChange={(v) => { const val = v ?? ""; setPickerValue(val); addCareer(val) }}
+          disabled={selectedIds.length >= MAX_CAREERS}
+        >
+          <SelectTrigger className="w-96">
+            <SelectValue
+              placeholder={
+                selectedIds.length >= MAX_CAREERS
+                  ? "Máximo alcanzado"
+                  : "Agregar carrera para comparar..."
+              }
+            />
+          </SelectTrigger>
+          <SelectContent>
+            {availableToAdd?.map((c) => (
+              <SelectItem key={c.id} value={c.id}>
+                {c.name} — {c.university.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         {selectedIds.length > 0 && (
           <Button variant="destructive" onClick={clear} className="shrink-0">
             <Trash2 className="h-4 w-4 mr-2" />
