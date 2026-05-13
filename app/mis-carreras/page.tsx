@@ -4,11 +4,11 @@ import { useEffect, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { api } from "@/lib/api"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button, buttonVariants } from "@/components/ui/button"
+import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { MapPin, Clock, Users, Trash2, BookOpen } from "lucide-react"
-import Link from "next/link"
+import { EmptyState } from "@/components/empty-state"
 
 const STORAGE_KEY = "mis-carreras"
 
@@ -85,13 +85,11 @@ export default function MisCarrerasPage() {
       </section>
 
       {ids.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 gap-4 text-muted-foreground">
-          <BookOpen className="h-12 w-12 opacity-20" />
-          <p>No tenés carreras guardadas todavía.</p>
-          <Link href="/carreras" className={buttonVariants()}>
-            Explorar carreras
-          </Link>
-        </div>
+        <EmptyState
+          icon={BookOpen}
+          title="No tenés carreras guardadas todavía"
+          action={{ label: "Explorar carreras", href: "/carreras" }}
+        />
       ) : (
         <section className="grid gap-4 md:grid-cols-2">
           {isLoading

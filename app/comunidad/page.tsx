@@ -11,6 +11,8 @@ import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Heart, MessageCircle, Send } from "lucide-react"
+import { EmptyState } from "@/components/empty-state"
+import { ErrorState } from "@/components/error-state"
 
 type Post = {
   id: string
@@ -44,7 +46,7 @@ export default function ComunidadPage() {
   const [authorRole, setAuthorRole] = useState("")
   const [likedIds, setLikedIds] = useState<Set<string>>(new Set())
 
-  const { data: posts, isLoading } = useQuery<Post[]>({
+  const { data: posts, isLoading, isError, refetch } = useQuery<Post[]>({
     queryKey: ["posts"],
     queryFn: () => api.get("posts").json<Post[]>(),
   })
@@ -119,31 +121,41 @@ export default function ComunidadPage() {
       </Card>
 
       <section className="space-y-4">
-        {isLoading
-          ? Array.from({ length: 3 }).map((_, i) => (
-              <Card key={i}>
-                <CardHeader>
-                  <div className="flex items-center gap-3">
-                    <Skeleton className="h-10 w-10 rounded-full" />
-                    <div className="space-y-1.5">
-                      <Skeleton className="h-4 w-32" />
-                      <Skeleton className="h-3 w-24" />
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <Skeleton className="h-4 w-full" />
-                  <Skeleton className="h-4 w-3/4" />
-                </CardContent>
-              </Card>
-            ))
-          : posts?.length === 0
-          ? (
-            <p className="text-center text-muted-foreground py-12">
-              Sé el primero en publicar algo.
-            </p>
-          )
-          : posts?.map((post) => (
+        {isLoading && Array.from({ length: 3 }).map((_, i) => (
+          <Card key={i}>
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <Skeleton className="h-10 w-10 rounded-full" />
+                <div className="space-y-1.5">
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-3 w-24" />
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-3/4" />
+            </CardContent>
+          </Card>
+        ))}
+
+        {isError && (
+          <ErrorState
+            title="No pudimos cargar las publicaciones"
+            description="Ocurrió un error al conectar con el servidor."
+            onRetry={refetch}
+          />
+        )}
+
+        {!isLoading && !isError && posts?.length === 0 && (
+          <EmptyState
+            icon={MessageCircle}
+            title="Todavía no hay publicaciones"
+            description="¡Sé el primero en publicar!"
+          />
+        )}
+
+        {!isLoading && !isError && posts?.map((post) => (
               <Card key={post.id} className="hover:shadow-md transition-shadow">
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">

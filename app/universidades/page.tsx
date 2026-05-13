@@ -9,7 +9,9 @@ import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
-import { MapPin, BookOpen, Globe, Search } from "lucide-react"
+import { MapPin, BookOpen, Globe, Search, SearchX } from "lucide-react"
+import { EmptyState } from "@/components/empty-state"
+import { ErrorState } from "@/components/error-state"
 
 type University = {
   id: string
@@ -33,10 +35,12 @@ export default function UniversidadesPage() {
   if (search) params.set("search", search)
   if (type !== "todos") params.set("type", type)
 
-  const { data: universities, isLoading, isError } = useApiQuery<University[]>(
+  const { data: universities, isLoading, isError, refetch } = useApiQuery<University[]>(
     ["universities", search, type],
     `universities?${params.toString()}`
   )
+
+  const hasFilters = search !== "" || type !== "todos"
 
   return (
     <div className="space-y-8 p-6 lg:p-8">
@@ -70,7 +74,11 @@ export default function UniversidadesPage() {
       </section>
 
       {isError && (
-        <p className="text-sm text-destructive">Error al cargar universidades.</p>
+        <ErrorState
+          title="No pudimos cargar las universidades"
+          description="Ocurrió un error al conectar con el servidor."
+          onRetry={refetch}
+        />
       )}
 
       <section className="grid gap-4 md:grid-cols-2">
@@ -143,10 +151,12 @@ export default function UniversidadesPage() {
             ))}
       </section>
 
-      {!isLoading && universities?.length === 0 && (
-        <p className="text-center text-muted-foreground py-12">
-          No se encontraron universidades con esos filtros.
-        </p>
+      {!isLoading && !isError && universities?.length === 0 && (
+        <EmptyState
+          icon={SearchX}
+          title={hasFilters ? "No encontramos universidades que coincidan con tu búsqueda" : "En este momento no hay universidades cargadas"}
+          description={hasFilters ? "Probá cambiando los filtros o buscando con otras palabras." : undefined}
+        />
       )}
     </div>
   )

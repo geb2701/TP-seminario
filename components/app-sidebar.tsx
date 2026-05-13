@@ -26,6 +26,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Search, Sun, Moon } from "lucide-react"
 import { useTheme } from "next-themes"
+import { useDebugState } from "@/components/providers"
 
 const data = {
   navMain: [
@@ -80,6 +81,8 @@ function ThemeToggle() {
 
 export function AppSidebar() {
   const { state } = useSidebar()
+  // DEBUG: toggle forced state for testing empty/error UI components
+  const { forcedState, setForcedState } = useDebugState()
 
   return (
     <Sidebar variant="sidebar">
@@ -116,6 +119,42 @@ export function AppSidebar() {
 
       </SidebarContent>
 
+      
+      {/* =====================================================
+          DEBUG PANEL — remove before production launch
+          Simulates empty/error responses from useApiQuery
+          ===================================================== */}
+      <SidebarFooter className="border-t border-dashed border-yellow-400/50 p-3 space-y-2">
+        {state !== "collapsed" && (
+          <p className="text-[10px] font-mono font-bold text-yellow-500 uppercase tracking-widest">
+            ⚠ Debug
+          </p>
+        )}
+        <div className="flex flex-col gap-1.5">
+          <button
+            onClick={() => setForcedState(forcedState === 'empty' ? null : 'empty')}
+            className={`w-full rounded px-2 py-1 text-xs font-mono font-semibold transition-colors ${
+              forcedState === 'empty'
+                ? 'bg-yellow-400 text-yellow-900'
+                : 'bg-yellow-400/15 text-yellow-500 hover:bg-yellow-400/30'
+            }`}
+          >
+            {state === "collapsed" ? "∅" : forcedState === 'empty' ? '✓ Empty ON' : 'Force Empty'}
+          </button>
+          <button
+            onClick={() => setForcedState(forcedState === 'error' ? null : 'error')}
+            className={`w-full rounded px-2 py-1 text-xs font-mono font-semibold transition-colors ${
+              forcedState === 'error'
+                ? 'bg-red-500 text-white'
+                : 'bg-red-500/15 text-red-400 hover:bg-red-500/30'
+            }`}
+          >
+            {state === "collapsed" ? "✕" : forcedState === 'error' ? '✓ Error ON' : 'Force Error'}
+          </button>
+        </div>
+      </SidebarFooter>
+      {/* ===================================================== */}
+      
       <SidebarFooter className="md:hidden">
         <SidebarSeparator />
         <div className="relative px-2 py-1">
