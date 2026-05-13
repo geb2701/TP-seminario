@@ -63,10 +63,11 @@ type MetricChartProps = {
   title: string
   data: { name: string; shortName: string; value: number | null }[]
   formatter?: (v: number) => string
+  tickFormatter?: (v: number) => string
   domain?: [number, number]
 }
 
-function MetricBarChart({ title, data, formatter, domain }: MetricChartProps) {
+function MetricBarChart({ title, data, formatter, tickFormatter, domain }: MetricChartProps) {
   const chartConfig = Object.fromEntries(
     data.map((d, i) => [d.shortName, { label: d.name, color: CHART_COLORS[i] }])
   )
@@ -96,7 +97,7 @@ function MetricBarChart({ title, data, formatter, domain }: MetricChartProps) {
               axisLine={false}
               tick={{ fontSize: 11 }}
               domain={domain}
-              tickFormatter={formatter}
+              tickFormatter={tickFormatter ?? formatter}
             />
             <ChartTooltip
               content={
@@ -139,28 +140,6 @@ function MetricBarChart({ title, data, formatter, domain }: MetricChartProps) {
 
 const MAX_CAREERS = 4
 
-function renderStudyPlan(career: CareerDetail) {
-  if (!career.studyPlans.length) {
-    return "Sin plan disponible"
-  }
-
-  return (
-    <div className="space-y-2">
-      {career.studyPlans.map((plan) => (
-        <div key={plan.id} className="space-y-1">
-          <p className="text-xs font-medium text-muted-foreground">{plan.year}° año</p>
-          {plan.subjects.length > 0 ? (
-            <p className="text-sm leading-relaxed">
-              {plan.subjects.map((subject) => subject.name).join(", ")}
-            </p>
-          ) : (
-            <p className="text-sm text-muted-foreground">Sin materias cargadas</p>
-          )}
-        </div>
-      ))}
-    </div>
-  )
-}
 
 export default function ComparePage() {
   const { compareIds, isComparing, canAdd, add, remove: removeFromHook, clear } = useCompareCareers()
@@ -233,10 +212,6 @@ export default function ComparePage() {
           ? `⭐ ${c.rating} / 5.0 (${c.reviewCount} reseñas)`
           : "Sin reseñas",
     },
-    {
-      label: "Plan de estudios",
-      render: (c) => renderStudyPlan(c),
-    },
   ]
 
   const shortName = (name: string) =>
@@ -258,6 +233,19 @@ export default function ComparePage() {
     name: c.name,
     shortName: shortName(c.name),
     value: c.rating,
+  })) ?? []
+
+  const allYears = useMemo(() => {
+    if (!compared) return []
+    const years = new Set<number>()
+    compared.forEach((c) => c.studyPlans.forEach((p) => years.add(p.year)))
+    return Array.from(years).sort((a, b) => a - b)
+  }, [compared])
+
+  const subjectsData = compared?.map((c) => ({
+    name: c.name,
+    shortName: shortName(c.name),
+    value: c.studyPlans.reduce((sum, plan) => sum + plan.subjects.length, 0),
   })) ?? []
 
   return (
@@ -460,6 +448,46 @@ export default function ComparePage() {
                       ))}
                   </tr>
                 ))}
+
+                {!isLoading && allYears.length > 0 && (
+                  <>
+                    <tr className="border-b bg-muted/40">
+                      <td
+                        colSpan={selectedIds.length + 1}
+                        className="py-2 px-4 text-sm font-semibold"
+                      >
+                        Plan de estudios
+                      </td>
+                    </tr>
+                    {allYears.map((year) => (
+                      <tr key={`year-${year}`} className="border-b last:border-0 hover:bg-muted/20 align-top">
+                        <td className="py-3 px-4 font-medium sticky left-0 bg-background text-muted-foreground whitespace-nowrap">
+                          {year}° año
+                        </td>
+                        {compared?.map((career) => {
+                          const plan = career.studyPlans.find((p) => p.year === year)
+                          return (
+                            <td key={career.id} className="py-3 px-4 align-top">
+                              {plan ? (
+                                plan.subjects.length > 0 ? (
+                                  <ul className="space-y-1">
+                                    {plan.subjects.map((s) => (
+                                      <li key={s.id} className="text-sm">{s.name}</li>
+                                    ))}
+                                  </ul>
+                                ) : (
+                                  <span className="text-sm text-muted-foreground">Sin materias cargadas</span>
+                                )
+                              ) : (
+                                <span className="text-sm text-muted-foreground">—</span>
+                              )}
+                            </td>
+                          )
+                        })}
+                      </tr>
+                    ))}
+                  </>
+                )}
               </tbody>
             </table>
           </section>
@@ -467,7 +495,7 @@ export default function ComparePage() {
           {!isLoading && compared && compared.length > 0 && (
             <section className="space-y-4">
               <h2 className="text-xl font-semibold">Métricas comparativas</h2>
-              <div className="grid gap-4 md:grid-cols-3">
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <MetricBarChart
                   title="Estudiantes inscritos"
                   data={studentsData}
@@ -477,7 +505,14 @@ export default function ComparePage() {
                   title="Duración (años)"
                   data={durationData}
                   formatter={(v) => `${v} año${v !== 1 ? "s" : ""}`}
+                  tickFormatter={(v) => String(v)}
                   domain={[0, 7]}
+                />
+                <MetricBarChart
+                  title="Cantidad de materias"
+                  data={subjectsData}
+                  formatter={(v) => `${v} materia${v !== 1 ? "s" : ""}`}
+                  tickFormatter={(v) => String(v)}
                 />
                 <MetricBarChart
                   title="Calificación promedio"

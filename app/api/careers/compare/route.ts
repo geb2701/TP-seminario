@@ -17,6 +17,7 @@ export async function GET(req: NextRequest) {
         orderBy: { year: "asc" },
         select: {
           id: true,
+          name: true,
           year: true,
           subjects: {
             orderBy: [{ semester: "asc" }, { name: "asc" }],
