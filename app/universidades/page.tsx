@@ -9,7 +9,7 @@ import { Button, buttonVariants } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
 import { MapPin, BookOpen, Globe, Search, SearchX } from "lucide-react"
 import { EmptyState } from "@/components/empty-state"
@@ -65,8 +65,10 @@ export default function UniversidadesPage() {
           />
         </div>
         <Select value={type} onValueChange={(v) => setType(v ?? "todos")}>
-          <SelectTrigger className="w-full sm:w-48">
-            <SelectValue placeholder="Tipo" />
+          <SelectTrigger className="w-full sm:w-48 px-3">
+            <span className={cn("flex-1 text-left text-sm truncate", type === "todos" && "text-muted-foreground")}>
+              {type === "todos" ? "Tipo" : type === "PUBLIC" ? "Pública" : "Privada"}
+            </span>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="todos">Todas</SelectItem>
