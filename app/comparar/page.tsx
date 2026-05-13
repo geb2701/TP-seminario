@@ -25,6 +25,15 @@ type CareerDetail = CareerOption & {
   area: { name: string }
   rating: number | null
   reviewCount: number
+  studyPlans: {
+    id: string
+    year: number
+    subjects: {
+      id: string
+      name: string
+      semester: number | null
+    }[]
+  }[]
 }
 
 const MODALITY_LABEL: Record<string, string> = {
@@ -34,6 +43,29 @@ const MODALITY_LABEL: Record<string, string> = {
 }
 
 const MAX_CAREERS = 3
+
+function renderStudyPlan(career: CareerDetail) {
+  if (!career.studyPlans.length) {
+    return "Sin plan disponible"
+  }
+
+  return (
+    <div className="space-y-2">
+      {career.studyPlans.map((plan) => (
+        <div key={plan.id} className="space-y-1">
+          <p className="text-xs font-medium text-muted-foreground">{plan.year}° año</p>
+          {plan.subjects.length > 0 ? (
+            <p className="text-sm leading-relaxed">
+              {plan.subjects.map((subject) => subject.name).join(", ")}
+            </p>
+          ) : (
+            <p className="text-sm text-muted-foreground">Sin materias cargadas</p>
+          )}
+        </div>
+      ))}
+    </div>
+  )
+}
 
 export default function ComparePage() {
   const [selectedIds, setSelectedIds] = useState<string[]>([])
@@ -82,6 +114,10 @@ export default function ComparePage() {
         c.rating !== null
           ? `⭐ ${c.rating} / 5.0 (${c.reviewCount} reseñas)`
           : "Sin reseñas",
+    },
+    {
+      label: "Plan de estudios",
+      render: (c) => renderStudyPlan(c),
     },
   ]
 
