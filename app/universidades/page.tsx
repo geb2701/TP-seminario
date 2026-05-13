@@ -18,6 +18,7 @@ import { ErrorState } from "@/components/error-state"
 type University = {
   id: string
   name: string
+  shortCode: string | null
   city: string
   province: string
   type: "PUBLIC" | "PRIVATE"
@@ -58,7 +59,7 @@ export default function UniversidadesPage() {
         <div className="relative flex-1">
           <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Buscar universidad..."
+            placeholder="Buscar universidad o sigla (UBA, UTN)..."
             className="pl-8"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -111,6 +112,11 @@ export default function UniversidadesPage() {
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <CardTitle className="text-lg">{uni.name}</CardTitle>
+                      {uni.shortCode && (
+                        <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-primary">
+                          {uni.shortCode}
+                        </p>
+                      )}
                       {uni.foundedYear && (
                         <CardDescription className="mt-1">
                           Fundada en {uni.foundedYear}

@@ -4,13 +4,22 @@ import { UniversityType } from "@/lib/generated/prisma/enums";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-  const search = searchParams.get("search") ?? "";
+  const search = (searchParams.get("search") ?? "").trim();
+  const shortCodeSearch = search.toUpperCase();
   const type = searchParams.get("type") ?? "";
 
   const universities = await prisma.university.findMany({
     where: {
       AND: [
-        search ? { name: { contains: search } } : {},
+        search
+          ? {
+              OR: [
+                { name: { contains: search } },
+                { shortCode: { equals: shortCodeSearch } },
+                { shortCode: { startsWith: shortCodeSearch } },
+              ],
+            }
+          : {},
         type ? { type: type as UniversityType } : {},
       ],
     },
