@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { Geist } from 'next/font/google'
+import { Open_Sans } from 'next/font/google'
 import { Providers } from '@/components/providers'
 import { AppSidebar } from '@/components/app-sidebar'
 import { SiteHeader } from '@/components/site-header'
@@ -7,7 +7,10 @@ import { SiteFooter } from '@/components/site-footer'
 import { SidebarInset } from '@/components/ui/sidebar'
 import './globals.css'
 
-const geist = Geist({ subsets: ['latin'], variable: '--font-sans' })
+const fontSans = Open_Sans({
+  subsets: ['latin'],
+  variable: '--font-sans',
+})
 
 export const metadata: Metadata = {
   title: 'Buscador de Carreras',
@@ -20,8 +23,8 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="es" className={geist.variable} suppressHydrationWarning>
-      <body className="font-sans">
+    <html lang="es" className={fontSans.variable} suppressHydrationWarning>
+      <body className="font-sans antialiased">
         <Providers>
           <AppSidebar />
           <SidebarInset className="flex flex-col min-h-svh">

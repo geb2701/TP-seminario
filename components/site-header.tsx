@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Search, Sun, Moon } from "lucide-react"
 import { useTheme } from "next-themes"
+import { AppBreadcrumb } from "@/components/app-breadcrumb"
 
 function ThemeToggle() {
   const { resolvedTheme, setTheme } = useTheme()
@@ -28,6 +29,7 @@ export function SiteHeader() {
       <div className="flex w-full items-center gap-2">
         <SidebarTrigger className="-ml-1" />
         <Separator orientation="vertical" className="h-4" />
+        <AppBreadcrumb />
 
         <div className="ml-auto flex items-center gap-2">
           <div className="relative w-96">

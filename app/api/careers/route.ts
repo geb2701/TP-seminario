@@ -7,12 +7,14 @@ export async function GET(req: NextRequest) {
   const search = searchParams.get("search") ?? "";
   const modality = searchParams.get("modality") ?? "";
   const areaId = searchParams.get("areaId") ?? "";
+  const universityId = searchParams.get("universityId") ?? "";
 
   const careers = await prisma.career.findMany({
     where: {
       AND: [
         modality ? { modality: modality as Modality } : {},
         areaId ? { areaId } : {},
+        universityId ? { universityId } : {},
       ],
     },
     include: {
