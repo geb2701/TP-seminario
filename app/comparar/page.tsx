@@ -7,6 +7,8 @@ import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { X, Plus, Trash2 } from "lucide-react"
+import { EmptyState } from "@/components/empty-state"
+import { ErrorState } from "@/components/error-state"
 import { useQuery } from "@tanstack/react-query"
 
 type CareerOption = {
@@ -41,7 +43,7 @@ export default function ComparePage() {
 
   const { data: allCareers } = useApiQuery<CareerOption[]>(["careers-list"], "careers")
 
-  const { data: compared, isLoading } = useQuery<CareerDetail[]>({
+  const { data: compared, isLoading, isError, refetch } = useQuery<CareerDetail[]>({
     queryKey: ["compare", selectedIds],
     queryFn: () =>
       api.get(`careers/compare?ids=${selectedIds.join(",")}`).json<CareerDetail[]>(),
@@ -126,10 +128,18 @@ export default function ComparePage() {
       </section>
 
       {selectedIds.length === 0 && (
-        <div className="flex flex-col items-center justify-center py-20 gap-3 text-muted-foreground">
-          <Plus className="h-12 w-12 opacity-20" />
-          <p>Seleccioná al menos una carrera para comenzar la comparación.</p>
-        </div>
+        <EmptyState
+          icon={Plus}
+          title="Seleccioná al menos una carrera para comenzar la comparación"
+        />
+      )}
+
+      {selectedIds.length > 0 && isError && (
+        <ErrorState
+          title="No pudimos cargar los datos de comparación"
+          description="Ocurrió un error al obtener los detalles de las carreras."
+          onRetry={refetch}
+        />
       )}
 
       {selectedIds.length > 0 && (

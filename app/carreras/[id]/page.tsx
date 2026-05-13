@@ -21,6 +21,8 @@ import {
   Building2,
   Calendar,
 } from "lucide-react"
+import { EmptyState } from "@/components/empty-state"
+import { ErrorState } from "@/components/error-state"
 
 // Cada Subject representa una materia individual dentro de un plan de estudios.
 // Estos campos vienen del endpoint de detalle de carrera y se usan para agrupar
@@ -152,7 +154,7 @@ export default function CarreraDetailPage({
   // Esta llamada pega a /api/careers/:id a traves de useApiQuery.
   // La respuesta se guarda en `career` y queda tipada como CareerDetail.
   // Tambien expone flags para manejar carga y error sin hacer fetch manual.
-  const { data: career, isLoading, isError } = useApiQuery<CareerDetail>(
+  const { data: career, isLoading, isError, refetch } = useApiQuery<CareerDetail>(
     ["career", id],
     `careers/${id}`
   )
@@ -160,15 +162,18 @@ export default function CarreraDetailPage({
   // Mientras llega la respuesta, renderiza una version skeleton de la pagina.
   if (isLoading) return <SkeletonDetail />
 
-  // Si la API falla o no devuelve datos, se muestra un estado vacio simple.
   if (isError || !career) {
     return (
-      <div className="flex flex-col items-center justify-center gap-4 p-6 lg:p-8 min-h-[40vh]">
-        <p className="text-muted-foreground text-lg">No se encontró la carrera.</p>
-        <Button variant="outline" onClick={() => router.back()}>
+      <div className="p-6 lg:p-8">
+        <Button variant="ghost" size="sm" onClick={() => router.back()} className="-ml-2 mb-6">
           <ArrowLeft className="h-4 w-4 mr-2" />
-          Volver
+          Volver a carreras
         </Button>
+        <ErrorState
+          title="No se encontró la carrera"
+          description="Es posible que haya sido eliminada o que el enlace sea incorrecto."
+          onRetry={refetch}
+        />
       </div>
     )
   }
@@ -365,9 +370,11 @@ export default function CarreraDetailPage({
         {/* Reseñas de usuarios. Si no hay, se muestra un estado vacio descriptivo */}
         <TabsContent value="resenas" className="mt-6 space-y-4">
           {career.reviews.length === 0 ? (
-            <p className="text-center text-muted-foreground py-10">
-              Todavía no hay reseñas para esta carrera.
-            </p>
+            <EmptyState
+              icon={Star}
+              title="Todavía no hay reseñas para esta carrera"
+              description="Sé el primero en compartir tu experiencia."
+            />
           ) : (
             career.reviews.map((review) => (
               <Card key={review.id}>

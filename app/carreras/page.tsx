@@ -10,8 +10,10 @@ import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
-import { Search, MapPin, Users, Clock, Bookmark, BookmarkCheck } from "lucide-react"
+import { Search, MapPin, Users, Clock, Bookmark, BookmarkCheck, SearchX } from "lucide-react"
 import { useSavedCareers } from "@/app/mis-carreras/page"
+import { EmptyState } from "@/components/empty-state"
+import { ErrorState } from "@/components/error-state"
 
 // Area disponible para filtrar el listado de carreras.
 type Area = { id: string; name: string }
@@ -54,7 +56,7 @@ export default function CarrerasPage() {
 
   // Consulta principal de carreras. Se vuelve a ejecutar cuando cambia
   // alguno de los filtros (search, modality, areaId).
-  const { data: careers, isLoading, isError } = useApiQuery<Career[]>(
+  const { data: careers, isLoading, isError, refetch } = useApiQuery<Career[]>(
     ["careers", search, modality, areaId],
     `careers?${careerParams.toString()}`
   )
@@ -68,6 +70,8 @@ export default function CarrerasPage() {
     areaId === "todos"
       ? "Todas las áreas"
       : areas?.find((area) => area.id === areaId)?.name ?? "Área"
+
+  const hasFilters = search !== "" || modality !== "todos" || areaId !== "todos"
 
   return (
     <div className="space-y-8 p-6 lg:p-8">
@@ -119,9 +123,12 @@ export default function CarrerasPage() {
         </Select>
       </section>
 
-      {/* Estado de error global de la consulta */}
       {isError && (
-        <p className="text-sm text-destructive">Error al cargar carreras.</p>
+        <ErrorState
+          title="No pudimos cargar las carreras"
+          description="Ocurrió un error al conectar con el servidor."
+          onRetry={refetch}
+        />
       )}
 
       <section className="grid gap-4 md:grid-cols-2">
@@ -197,11 +204,12 @@ export default function CarrerasPage() {
             ))}
       </section>
 
-          {/* Estado vacio cuando no hay resultados con los filtros actuales */}
-      {!isLoading && careers?.length === 0 && (
-        <p className="text-center text-muted-foreground py-12">
-          No se encontraron carreras con esos filtros.
-        </p>
+      {!isLoading && !isError && careers?.length === 0 && (
+        <EmptyState
+          icon={SearchX}
+          title={hasFilters ? "No encontramos carreras que coincidan con tu búsqueda" : "En este momento no hay carreras cargadas"}
+          description={hasFilters ? "Probá cambiando los filtros o buscando con otras palabras." : undefined}
+        />
       )}
     </div>
   )
