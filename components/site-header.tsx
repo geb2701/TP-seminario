@@ -3,10 +3,11 @@
 import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
-import { Sun, Moon } from "lucide-react"
+import { Sun, Moon, Search } from "lucide-react"
 import { useTheme } from "next-themes"
 import { AppBreadcrumb } from "@/components/app-breadcrumb"
 import { GlobalSearch } from "@/components/global-search"
+import { Input } from "@base-ui/react"
 
 function ThemeToggle() {
   const { resolvedTheme, setTheme } = useTheme()
@@ -31,10 +32,13 @@ export function SiteHeader() {
         <Separator orientation="vertical" className="h-4" />
         <AppBreadcrumb />
 
-        <div className="ml-auto flex items-center gap-2">
-          {/* Oculto en mobile, visible desde md en adelante */}
-          <div className="hidden md:block w-96">
-            <GlobalSearch />
+        <div className="ml-auto hidden md:flex items-center gap-2">
+          <div className="relative w-96">
+            <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Buscar carreras, universidades..."
+              className="w-full pl-8"
+            />
           </div>
           <ThemeToggle />
         </div>

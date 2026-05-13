@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useSearchParams } from "next/navigation"
+import Link from "next/link"
 import { useApiQuery } from "@/lib/api"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button, buttonVariants } from "@/components/ui/button"
@@ -146,7 +147,12 @@ export default function UniversidadesPage() {
                         Sitio web
                       </a>
                     )}
-                    <Button className="flex-1">Ver carreras</Button>
+                    <Link
+                      href={`/universidades/${uni.id}`}
+                      className={cn(buttonVariants(), "flex-1")}
+                    >
+                      Ver carreras
+                    </Link>
                   </div>
                 </CardContent>
               </Card>

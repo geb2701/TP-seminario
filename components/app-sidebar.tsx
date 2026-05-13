@@ -17,9 +17,14 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarSeparator,
   useSidebar,
 } from "@/components/ui/sidebar"
 import Link from "next/link"
+import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
+import { Search, Sun, Moon } from "lucide-react"
+import { useTheme } from "next-themes"
 import { useDebugState } from "@/components/providers"
 import { GlobalSearch } from "@/components/global-search"
 
@@ -51,12 +56,27 @@ const data = {
       url: "/universidades",
       icon: GraduationCap,
     },
-    {
-      title: "Comunidad",
-      url: "/comunidad",
-      icon: Users,
-    },
+    // {
+    //   title: "Comunidad",
+    //   url: "/comunidad",
+    //   icon: Users,
+    // },
   ],
+}
+
+function ThemeToggle() {
+  const { resolvedTheme, setTheme } = useTheme()
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
+    >
+      <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+      <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+      <span className="sr-only">Cambiar tema</span>
+    </Button>
+  )
 }
 
 export function AppSidebar() {
@@ -99,6 +119,7 @@ export function AppSidebar() {
 
       </SidebarContent>
 
+      
       {/* =====================================================
           DEBUG PANEL — remove before production launch
           Simulates empty/error responses from useApiQuery
@@ -133,6 +154,21 @@ export function AppSidebar() {
         </div>
       </SidebarFooter>
       {/* ===================================================== */}
+      
+      <SidebarFooter className="md:hidden">
+        <SidebarSeparator />
+        <div className="relative px-2 py-1">
+          <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Buscar carreras, universidades..."
+            className="w-full pl-8"
+          />
+        </div>
+        <div className="flex items-center justify-between px-2 py-1">
+          <span className="text-sm text-muted-foreground">Tema</span>
+          <ThemeToggle />
+        </div>
+      </SidebarFooter>
 
       <div className="px-3 pb-3 md:hidden">
         <GlobalSearch variant="inline" />
