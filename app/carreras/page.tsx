@@ -11,9 +11,11 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
 import { Search, MapPin, Users, Clock, Bookmark, BookmarkCheck, SearchX } from "lucide-react"
-import { useSavedCareers } from "@/app/mis-carreras/page"
 import { EmptyState } from "@/components/empty-state"
 import { ErrorState } from "@/components/error-state"
+import { Search, MapPin, Users, Clock, Bookmark, BookmarkCheck, Scale } from "lucide-react"
+import { useSavedCareers } from "@/app/mis-carreras/page"
+import { useCompareCareers } from "@/hooks/use-compare-careers"
 
 // Area disponible para filtrar el listado de carreras.
 type Area = { id: string; name: string }
@@ -39,8 +41,8 @@ const MODALITY_LABEL: Record<Career["modality"], string> = {
 }
 
 export default function CarrerasPage() {
-  // Hook local para guardar/quitar carreras en favoritos del usuario.
   const { isSaved, save, remove } = useSavedCareers()
+  const { isComparing, canAdd, add: addToCompare, remove: removeFromCompare } = useCompareCareers()
 
   // Estado de filtros en UI.
   const [search, setSearch] = useState("")
@@ -190,7 +192,15 @@ export default function CarrerasPage() {
                     <Button
                       variant="outline"
                       size="icon"
-                      // Toggle de guardado en la lista personal del usuario
+                      onClick={() => isComparing(career.id) ? removeFromCompare(career.id) : addToCompare(career.id)}
+                      title={isComparing(career.id) ? "Quitar del comparador" : canAdd ? "Agregar al comparador" : "Comparador lleno (máx. 3)"}
+                      disabled={!isComparing(career.id) && !canAdd}
+                    >
+                      <Scale className={`h-4 w-4 ${isComparing(career.id) ? "text-primary" : ""}`} />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="icon"
                       onClick={() => isSaved(career.id) ? remove(career.id) : save(career.id)}
                       title={isSaved(career.id) ? "Quitar de mis carreras" : "Guardar carrera"}
                     >

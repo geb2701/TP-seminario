@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import { ThemeProvider } from 'next-themes';
 import { ReactNode, createContext, useContext, useState } from 'react';
+import { BreadcrumbProvider } from '@/components/breadcrumb-context';
 
 // ============================================================
 // DEBUG: Forced state context — for testing empty/error UI states.
@@ -42,11 +43,13 @@ export function Providers({ children }: { children: ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-        <SidebarProvider>
-          <DebugContext.Provider value={{ forcedState, setForcedState }}>
-            {children}
-          </DebugContext.Provider>
-        </SidebarProvider>
+        <BreadcrumbProvider>
+          <SidebarProvider>
+            <DebugContext.Provider value={{ forcedState, setForcedState }}>
+              {children}
+            </DebugContext.Provider>
+          </SidebarProvider>
+        </BreadcrumbProvider>
       </ThemeProvider>
     </QueryClientProvider>
   );

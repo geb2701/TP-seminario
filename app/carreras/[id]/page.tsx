@@ -20,9 +20,12 @@ import {
   BookOpen,
   Building2,
   Calendar,
+  Scale,
 } from "lucide-react"
 import { EmptyState } from "@/components/empty-state"
 import { ErrorState } from "@/components/error-state"
+import { useCompareCareers } from "@/hooks/use-compare-careers"
+import { useDynamicBreadcrumb } from "@/components/breadcrumb-context"
 
 // Cada Subject representa una materia individual dentro de un plan de estudios.
 // Estos campos vienen del endpoint de detalle de carrera y se usan para agrupar
@@ -147,9 +150,8 @@ export default function CarreraDetailPage({
   // Next entrega params como promesa en este contexto; aca se resuelve para
   // obtener el id dinamico de la ruta /carreras/[id].
   const { id } = use(params)
-
-  // Se usa para volver a la pantalla anterior desde los botones de navegacion.
   const router = useRouter()
+  const { isComparing, canAdd, add: addToCompare, remove: removeFromCompare } = useCompareCareers()
 
   // Esta llamada pega a /api/careers/:id a traves de useApiQuery.
   // La respuesta se guarda en `career` y queda tipada como CareerDetail.
@@ -158,6 +160,8 @@ export default function CarreraDetailPage({
     ["career", id],
     `careers/${id}`
   )
+
+  useDynamicBreadcrumb(`/carreras/${id}`, career?.name)
 
   // Mientras llega la respuesta, renderiza una version skeleton de la pagina.
   if (isLoading) return <SkeletonDetail />
@@ -204,9 +208,21 @@ export default function CarreraDetailPage({
             <h1 className="text-3xl font-bold">{career.name}</h1>
             <p className="text-lg text-muted-foreground">{career.university.name}</p>
           </div>
-          <Badge variant="outline" className="text-sm px-3 py-1">
-            {MODALITY_LABEL[career.modality]}
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Button
+              variant={isComparing(career.id) ? "default" : "outline"}
+              size="sm"
+              onClick={() => isComparing(career.id) ? removeFromCompare(career.id) : addToCompare(career.id)}
+              disabled={!isComparing(career.id) && !canAdd}
+              title={!isComparing(career.id) && !canAdd ? "Comparador lleno (máx. 3)" : undefined}
+            >
+              <Scale className="h-4 w-4 mr-2" />
+              {isComparing(career.id) ? "En comparador" : "Comparar"}
+            </Button>
+            <Badge variant="outline" className="text-sm px-3 py-1">
+              {MODALITY_LABEL[career.modality]}
+            </Badge>
+          </div>
         </div>
 
         <div className="flex flex-wrap gap-2">
