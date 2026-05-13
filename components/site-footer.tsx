@@ -29,9 +29,8 @@ export function SiteFooter() {
           <div>
             <h3 className="font-semibold mb-4">Legal</h3>
             <ul className="space-y-2 text-sm">
-              <li><a href="/privacidad" className="text-muted-foreground hover:text-foreground transition">Privacidad</a></li>
-              <li><a href="/terminos" className="text-muted-foreground hover:text-foreground transition">Términos</a></li>
-              <li><a href="/contacto" className="text-muted-foreground hover:text-foreground transition">Contacto</a></li>
+              <li><a href="/privacidad" className="text-muted-foreground hover:text-foreground transition">Política de Privacidad</a></li>
+              <li><a href="/cookies" className="text-muted-foreground hover:text-foreground transition">Política de Cookies</a></li>
             </ul>
           </div>
         </div>
