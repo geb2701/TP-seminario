@@ -13,6 +13,17 @@ export async function GET(req: NextRequest) {
       university: { select: { name: true, city: true, province: true, type: true } },
       area: { select: { name: true } },
       reviews: { select: { rating: true } },
+      studyPlans: {
+        orderBy: { year: "asc" },
+        select: {
+          id: true,
+          year: true,
+          subjects: {
+            orderBy: [{ semester: "asc" }, { name: "asc" }],
+            select: { id: true, name: true, semester: true },
+          },
+        },
+      },
     },
   });
 
