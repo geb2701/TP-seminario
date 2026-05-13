@@ -3,12 +3,12 @@
 import { useEffect, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { api } from "@/lib/api"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
+import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
-import { MapPin, Clock, Users, Trash2, BookOpen } from "lucide-react"
+import { BookOpen } from "lucide-react"
 import { EmptyState } from "@/components/empty-state"
+import { CareerCard } from "@/components/career-card"
+import { useCompareCareers } from "@/hooks/use-compare-careers"
 
 const STORAGE_KEY = "mis-carreras"
 
@@ -16,18 +16,10 @@ type Career = {
   id: string
   name: string
   durationYears: number
-  degreeTitle: string
   modality: "PRESENCIAL" | "HIBRIDO" | "ONLINE"
   studentCount: number
-  university: { name: string; city: string; province: string }
-  area: { name: string }
+  university: { id: string; name: string; city: string; province: string }
   rating: number | null
-}
-
-const MODALITY_LABEL: Record<Career["modality"], string> = {
-  PRESENCIAL: "Presencial",
-  HIBRIDO: "Híbrido",
-  ONLINE: "Online",
 }
 
 export function useSavedCareers() {
@@ -66,10 +58,11 @@ export function useSavedCareers() {
 }
 
 export default function MisCarrerasPage() {
-  const { ids, remove } = useSavedCareers()
+  const { ids, isSaved, save, remove } = useSavedCareers()
+  const { isComparing, canAdd, add: addToCompare, remove: removeFromCompare } = useCompareCareers()
 
   const { data: careers, isLoading } = useQuery<Career[]>({
-    queryKey: ["compare", ids],
+    queryKey: ["mis-carreras", ids],
     queryFn: () =>
       api.get(`careers/compare?ids=${ids.join(",")}`).json<Career[]>(),
     enabled: ids.length > 0,
@@ -109,46 +102,21 @@ export default function MisCarrerasPage() {
                 </Card>
               ))
             : careers?.map((career) => (
-                <Card key={career.id} className="hover:shadow-lg transition-shadow">
-                  <CardHeader>
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <CardTitle className="text-lg">{career.name}</CardTitle>
-                        <CardDescription className="mt-1">
-                          {career.university.name}
-                        </CardDescription>
-                      </div>
-                      <Badge variant="outline">{MODALITY_LABEL[career.modality]}</Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="grid grid-cols-2 gap-3 text-sm">
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        <MapPin className="h-4 w-4 shrink-0" />
-                        {career.university.city}, {career.university.province}
-                      </div>
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        <Clock className="h-4 w-4 shrink-0" />
-                        {career.durationYears} años
-                      </div>
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        <Users className="h-4 w-4 shrink-0" />
-                        {career.studentCount.toLocaleString("es-AR")} estudiantes
-                      </div>
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        {career.rating !== null ? `⭐ ${career.rating} / 5.0` : "Sin reseñas"}
-                      </div>
-                    </div>
-                    <Button
-                      variant="outline"
-                      className="w-full text-destructive hover:text-destructive"
-                      onClick={() => remove(career.id)}
-                    >
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      Quitar de mis carreras
-                    </Button>
-                  </CardContent>
-                </Card>
+                <CareerCard
+                  key={career.id}
+                  career={career}
+                  university={career.university}
+                  isSaved={isSaved(career.id)}
+                  onSave={() => isSaved(career.id) ? remove(career.id) : save(career.id)}
+                  isComparing={isComparing(career.id)}
+                  canAddToCompare={canAdd}
+                  onCompare={() => isComparing(career.id) ? removeFromCompare(career.id) : addToCompare(career.id)}
+                  showUniversityLink
+                  removeAction={{
+                    label: "Quitar de mis carreras",
+                    onClick: () => remove(career.id),
+                  }}
+                />
               ))}
         </section>
       )}

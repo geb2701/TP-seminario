@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
   const careers = await prisma.career.findMany({
     where: { id: { in: idList } },
     include: {
-      university: { select: { name: true, city: true, province: true, type: true } },
+      university: { select: { id: true, name: true, city: true, province: true, type: true } },
       area: { select: { name: true } },
       reviews: { select: { rating: true } },
       studyPlans: {

@@ -31,6 +31,8 @@ export async function GET(
           foundedYear: true,
           description: true,
           logoUrl: true,
+          reviews: { select: { rating: true } },
+          _count: { select: { careers: true } },
         },
       },
 
