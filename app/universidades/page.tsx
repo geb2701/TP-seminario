@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { useApiQuery } from "@/lib/api"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -29,7 +30,8 @@ type University = {
 }
 
 export default function UniversidadesPage() {
-  const [search, setSearch] = useState("")
+  const searchParams = useSearchParams()
+  const [search, setSearch] = useState(searchParams.get("search") ?? "")
   const [type, setType] = useState("todos")
 
   const params = new URLSearchParams()

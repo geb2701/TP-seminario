@@ -2,11 +2,11 @@
 
 import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
-import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { Search, Sun, Moon } from "lucide-react"
+import { Sun, Moon } from "lucide-react"
 import { useTheme } from "next-themes"
 import { AppBreadcrumb } from "@/components/app-breadcrumb"
+import { GlobalSearch } from "@/components/global-search"
 
 function ThemeToggle() {
   const { resolvedTheme, setTheme } = useTheme()
@@ -32,12 +32,8 @@ export function SiteHeader() {
         <AppBreadcrumb />
 
         <div className="ml-auto hidden md:flex items-center gap-2">
-          <div className="relative w-96">
-            <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Buscar carreras, universidades..."
-              className="w-full pl-8"
-            />
+          <div className="w-96">
+            <GlobalSearch />
           </div>
           <ThemeToggle />
         </div>
