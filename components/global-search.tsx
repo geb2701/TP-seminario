@@ -89,7 +89,7 @@ export function GlobalSearch({ variant = "dropdown" }: GlobalSearchProps) {
               {data!.universities.map((u) => (
                 <Link
                   key={u.id}
-                  href={`/universidades?search=${encodeURIComponent(u.name)}`}
+                  href={`/universidades/${u.id}`}
                   onClick={handleSelect}
                   className="flex items-center gap-3 px-3 py-2 hover:bg-muted rounded text-sm"
                 >
