@@ -78,9 +78,9 @@ export default function MisCarrerasPage() {
   return (
     <div className="space-y-8 p-6 lg:p-8">
       <section className="space-y-2">
-        <h1 className="text-3xl font-bold">Mis Carreras</h1>
+        <h1 className="text-3xl font-bold">Mis carreras</h1>
         <p className="text-muted-foreground">
-          Carreras que guardaste para revisar más tarde
+          Carreras que guardaste para revisar más tarde.
         </p>
       </section>
 
