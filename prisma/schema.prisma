@@ -1,0 +1,103 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+enum UniversityType {
+  PUBLIC
+  PRIVATE
+}
+
+enum Modality {
+  PRESENCIAL
+  HIBRIDO
+  ONLINE
+}
+
+model University {
+  id               String             @id @default(cuid())
+  name             String
+  city             String
+  province         String
+  type             UniversityType
+  website          String?
+  foundedYear      Int?
+  description      String?
+  logoUrl          String?
+  careers          Career[]
+  reviews          UniversityReview[]
+}
+
+model Area {
+  id      String   @id @default(cuid())
+  name    String
+  careers Career[]
+}
+
+model Career {
+  id            String        @id @default(cuid())
+  name          String
+  durationYears Int
+  degreeTitle   String
+  modality      Modality      @default(PRESENCIAL)
+  description   String?
+  studentCount  Int           @default(0)
+  universityId  String
+  areaId        String
+  university    University    @relation(fields: [universityId], references: [id])
+  area          Area          @relation(fields: [areaId], references: [id])
+  studyPlans    StudyPlan[]
+  reviews       CareerReview[]
+}
+
+model StudyPlan {
+  id       String    @id @default(cuid())
+  name     String
+  year     Int
+  careerId String
+  career   Career    @relation(fields: [careerId], references: [id])
+  subjects Subject[]
+}
+
+model Subject {
+  id          String    @id @default(cuid())
+  name        String
+  year        Int
+  semester    Int?
+  studyPlanId String
+  studyPlan   StudyPlan @relation(fields: [studyPlanId], references: [id])
+}
+
+model CareerReview {
+  id         String   @id @default(cuid())
+  rating     Int
+  content    String
+  authorName String?
+  careerId   String
+  career     Career   @relation(fields: [careerId], references: [id])
+  createdAt  DateTime @default(now())
+}
+
+model Post {
+  id         String   @id @default(cuid())
+  content    String
+  authorName String
+  authorRole String?
+  tags       String   @default("[]")
+  likes      Int      @default(0)
+  createdAt  DateTime @default(now())
+}
+
+model UniversityReview {
+  id           String     @id @default(cuid())
+  rating       Int
+  content      String
+  authorName   String?
+  universityId String
+  university   University @relation(fields: [universityId], references: [id])
+  createdAt    DateTime   @default(now())
+}
