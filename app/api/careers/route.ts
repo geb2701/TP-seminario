@@ -11,7 +11,6 @@ export async function GET(req: NextRequest) {
   const careers = await prisma.career.findMany({
     where: {
       AND: [
-        search ? { name: { contains: search } } : {},
         modality ? { modality: modality as Modality } : {},
         areaId ? { areaId } : {},
       ],
@@ -24,7 +23,14 @@ export async function GET(req: NextRequest) {
     orderBy: { studentCount: "desc" },
   });
 
-  const data = careers.map((c) => {
+  const normalized = (s: string) =>
+    s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+
+  const filtered = search
+    ? careers.filter((c) => normalized(c.name).includes(normalized(search)))
+    : careers;
+
+  const data = filtered.map((c) => {
     const { reviews, ...rest } = c;
     const rating =
       reviews.length > 0
