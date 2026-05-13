@@ -8,7 +8,9 @@ import { Button, buttonVariants } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select"
+
+type University = { id: string; name: string }
 import { cn } from "@/lib/utils"
 import { Search, MapPin, Users, Clock, Bookmark, BookmarkCheck, Scale } from "lucide-react"
 import { useSavedCareers } from "@/app/mis-carreras/page"
@@ -44,31 +46,22 @@ export default function CarrerasPage() {
   // Estado de filtros en UI.
   const [search, setSearch] = useState("")
   const [modality, setModality] = useState("todos")
-  const [areaId, setAreaId] = useState("todos")
+  const [areaId, setAreaId] = useState("")
+  const [universityId, setUniversityId] = useState("")
 
-  // Construye los query params segun los filtros activos.
-  // Si un filtro esta en "todos", no se envia para mantener la consulta limpia.
   const careerParams = new URLSearchParams()
   if (search) careerParams.set("search", search)
   if (modality !== "todos") careerParams.set("modality", modality)
-  if (areaId !== "todos") careerParams.set("areaId", areaId)
+  if (areaId) careerParams.set("areaId", areaId)
+  if (universityId) careerParams.set("universityId", universityId)
 
-  // Consulta principal de carreras. Se vuelve a ejecutar cuando cambia
-  // alguno de los filtros (search, modality, areaId).
   const { data: careers, isLoading, isError } = useApiQuery<Career[]>(
-    ["careers", search, modality, areaId],
+    ["careers", search, modality, areaId, universityId],
     `careers?${careerParams.toString()}`
   )
 
-  // Catálogo de áreas para poblar el select de filtro.
   const { data: areas } = useApiQuery<Area[]>(["areas"], "areas")
-
-  // Nombre legible del area seleccionada para mostrar en el trigger.
-  // Evita que el Select muestre el id tecnico.
-  const selectedAreaName =
-    areaId === "todos"
-      ? "Todas las áreas"
-      : areas?.find((area) => area.id === areaId)?.name ?? "Área"
+  const { data: universities } = useApiQuery<University[]>(["universities"], "universities")
 
   return (
     <div className="space-y-8 p-6 lg:p-8">
@@ -79,10 +72,9 @@ export default function CarrerasPage() {
         </p>
       </section>
 
-      <section className="grid gap-4 md:grid-cols-4">
-        {/* Input de texto para filtrar por nombre de carrera */}
-        <div className="relative md:col-span-2">
-          <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+      <section className="space-y-3">
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="Buscar carreras..."
             className="pl-8"
@@ -90,34 +82,49 @@ export default function CarrerasPage() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <Select value={universityId || "todas"} onValueChange={(v) => setUniversityId(v === "todas" ? "" : (v ?? ""))}>
+            <SelectTrigger className="w-full px-3">
+              <span className={cn("flex-1 text-left text-sm truncate", !universityId && "text-muted-foreground")}>
+                {universityId ? (universities?.find(u => u.id === universityId)?.name ?? universityId) : "Universidad"}
+              </span>
+            </SelectTrigger>
+            <SelectContent className="min-w-[260px]">
+              <SelectItem value="todas">Todas las universidades</SelectItem>
+              {universities?.map((u) => (
+                <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
-        {/* Filtro por modalidad */}
-        <Select value={modality} onValueChange={(v) => setModality(v ?? "todos")}>
-          <SelectTrigger>
-            <SelectValue placeholder="Modalidad" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="todos">Todas las modalidades</SelectItem>
-            <SelectItem value="PRESENCIAL">Presencial</SelectItem>
-            <SelectItem value="HIBRIDO">Híbrido</SelectItem>
-            <SelectItem value="ONLINE">Online</SelectItem>
-          </SelectContent>
-        </Select>
+          <Select value={areaId || "todas"} onValueChange={(v) => setAreaId(v === "todas" ? "" : (v ?? ""))}>
+            <SelectTrigger className="w-full px-3">
+              <span className={cn("flex-1 text-left text-sm truncate", !areaId && "text-muted-foreground")}>
+                {areaId ? (areas?.find(a => a.id === areaId)?.name ?? areaId) : "Facultad / Área"}
+              </span>
+            </SelectTrigger>
+            <SelectContent className="min-w-[260px]">
+              <SelectItem value="todas">Todas las áreas</SelectItem>
+              {areas?.map((area) => (
+                <SelectItem key={area.id} value={area.id}>{area.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
-        {/* Filtro por area academica */}
-        <Select value={areaId} onValueChange={(v) => setAreaId(v ?? "todos")}>
-          <SelectTrigger>
-            <SelectValue placeholder="Área">{selectedAreaName}</SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="todos">Todas las áreas</SelectItem>
-            {areas?.map((area) => (
-              <SelectItem key={area.id} value={area.id}>
-                {area.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          <Select value={modality} onValueChange={(v) => setModality(v ?? "todos")}>
+            <SelectTrigger className="w-full px-3">
+              <span className={cn("flex-1 text-left text-sm truncate", modality === "todos" && "text-muted-foreground")}>
+                {modality === "todos" ? "Modalidad" : MODALITY_LABEL[modality as Career["modality"]]}
+              </span>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todas las modalidades</SelectItem>
+              <SelectItem value="PRESENCIAL">Presencial</SelectItem>
+              <SelectItem value="HIBRIDO">Híbrido</SelectItem>
+              <SelectItem value="ONLINE">Online</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </section>
 
       {/* Estado de error global de la consulta */}

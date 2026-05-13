@@ -285,7 +285,7 @@ export default function ComparePage() {
                 />
               </div>
               <Select value={filterUniversity || "todas"} onValueChange={(v) => setFilterUniversity(v === "todas" ? "" : (v ?? ""))}>
-                <SelectTrigger className="w-full">
+                <SelectTrigger className="w-full px-3">
                   <span className={cn("flex-1 text-left text-sm truncate", !filterUniversity && "text-muted-foreground")}>
                     {filterUniversity || "Universidad"}
                   </span>
@@ -298,7 +298,7 @@ export default function ComparePage() {
                 </SelectContent>
               </Select>
               <Select value={filterArea || "todas"} onValueChange={(v) => setFilterArea(v === "todas" ? "" : (v ?? ""))}>
-                <SelectTrigger className="w-full">
+                <SelectTrigger className="w-full px-3">
                   <span className={cn("flex-1 text-left text-sm truncate", !filterArea && "text-muted-foreground")}>
                     {filterArea ? (areas.find(a => a.id === filterArea)?.name ?? filterArea) : "Facultad / Área"}
                   </span>
