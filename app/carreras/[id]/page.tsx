@@ -1,29 +1,23 @@
 "use client"
 
 import { use } from "react"
-import { useRouter } from "next/navigation"
 import { useApiQuery } from "@/lib/api"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
-  MapPin,
   Clock,
   Users,
   GraduationCap,
-  Globe,
-  ArrowLeft,
   Star,
   BookOpen,
-  Building2,
-  Calendar,
   Scale,
 } from "lucide-react"
 import { EmptyState } from "@/components/empty-state"
 import { ErrorState } from "@/components/error-state"
+import { UniversityInfoCard } from "@/components/university-info-card"
 import { useCompareCareers } from "@/hooks/use-compare-careers"
 import { useDynamicBreadcrumb } from "@/components/breadcrumb-context"
 
@@ -79,6 +73,8 @@ type CareerDetail = {
     foundedYear: number | null
     description: string | null
     logoUrl: string | null
+    reviews: { rating: number }[]
+    _count: { careers: number }
   }
   area: { id: string; name: string }
   studyPlans: StudyPlan[]
@@ -150,7 +146,6 @@ export default function CarreraDetailPage({
   // Next entrega params como promesa en este contexto; aca se resuelve para
   // obtener el id dinamico de la ruta /carreras/[id].
   const { id } = use(params)
-  const router = useRouter()
   const { isComparing, canAdd, add: addToCompare, remove: removeFromCompare } = useCompareCareers()
 
   // Esta llamada pega a /api/careers/:id a traves de useApiQuery.
@@ -169,10 +164,6 @@ export default function CarreraDetailPage({
   if (isError || !career) {
     return (
       <div className="p-6 lg:p-8">
-        <Button variant="ghost" size="sm" onClick={() => router.back()} className="-ml-2 mb-6">
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Volver a carreras
-        </Button>
         <ErrorState
           title="No se encontró la carrera"
           description="Es posible que haya sido eliminada o que el enlace sea incorrecto."
@@ -194,13 +185,7 @@ export default function CarreraDetailPage({
   }, {})
 
   return (
-    <div className="space-y-8 p-6 lg:p-8 max-w-5xl">
-      {/* Volver */}
-      <Button variant="ghost" size="sm" onClick={() => router.back()} className="-ml-2">
-        <ArrowLeft className="h-4 w-4 mr-2" />
-        Volver a carreras
-      </Button>
-
+    <div className="space-y-8 p-6 lg:p-8">
       {/* Header principal del detalle: nombre, universidad, modalidad y badges contextuales */}
       <section className="space-y-3">
         <div className="flex flex-wrap items-start justify-between gap-3">
@@ -208,8 +193,7 @@ export default function CarreraDetailPage({
             <h1 className="text-3xl font-bold">{career.name}</h1>
             <p className="text-lg text-muted-foreground">{career.university.name}</p>
           </div>
-          <div className="flex items-center gap-2">
-            <Button
+          <Button
               variant={isComparing(career.id) ? "default" : "outline"}
               size="sm"
               onClick={() => isComparing(career.id) ? removeFromCompare(career.id) : addToCompare(career.id)}
@@ -219,17 +203,14 @@ export default function CarreraDetailPage({
               <Scale className="h-4 w-4 mr-2" />
               {isComparing(career.id) ? "En comparador" : "Comparar"}
             </Button>
-            <Badge variant="outline" className="text-sm px-3 py-1">
-              {MODALITY_LABEL[career.modality]}
-            </Badge>
-          </div>
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <Badge variant="secondary">{career.area.name}</Badge>
+          <Badge variant="outline">{MODALITY_LABEL[career.modality]}</Badge>
           <Badge variant={career.university.type === "PUBLIC" ? "default" : "secondary"}>
             {career.university.type === "PUBLIC" ? "Pública" : "Privada"}
           </Badge>
+          <Badge variant="secondary">{career.area.name}</Badge>
         </div>
 
         {career.description && (
@@ -291,62 +272,24 @@ export default function CarreraDetailPage({
 
       {/* Tabs para separar informacion institucional, academica y social */}
       <Tabs defaultValue="universidad">
-        <TabsList className="flex flex-wrap h-auto gap-1">
-          <TabsTrigger value="universidad">Universidad</TabsTrigger>
-          {/* Solo se muestra si la API devolvio planes/materias para esta carrera */}
+        <TabsList className="w-full">
+          <TabsTrigger value="universidad" className="flex-1">Universidad</TabsTrigger>
           {career.studyPlans.length > 0 && (
-            <TabsTrigger value="plan">Plan de estudios</TabsTrigger>
+            <TabsTrigger value="plan" className="flex-1">Plan de estudios</TabsTrigger>
           )}
-          <TabsTrigger value="resenas">
+          <TabsTrigger value="resenas" className="flex-1">
             Reseñas ({career.reviewCount})
           </TabsTrigger>
         </TabsList>
 
-        {/* Informacion institucional de la universidad asociada a la carrera */}
         <TabsContent value="universidad" className="mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Building2 className="h-5 w-5" />
-                {career.university.name}
-              </CardTitle>
-              {career.university.foundedYear && (
-                <CardDescription>Fundada en {career.university.foundedYear}</CardDescription>
-              )}
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {career.university.description && (
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  {career.university.description}
-                </p>
-              )}
-              <Separator />
-              <div className="grid gap-3 sm:grid-cols-2 text-sm">
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <MapPin className="h-4 w-4 shrink-0" />
-                  {career.university.city}, {career.university.province}
-                </div>
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Calendar className="h-4 w-4 shrink-0" />
-                  {career.university.type === "PUBLIC" ? "Universidad Pública" : "Universidad Privada"}
-                </div>
-              </div>
-              {career.university.website && (
-                <a
-                  href={career.university.website}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 text-sm text-primary hover:underline"
-                >
-                  <Globe className="h-4 w-4" />
-                  {career.university.website}
-                </a>
-              )}
-            </CardContent>
-          </Card>
+          <UniversityInfoCard
+            university={career.university}
+            careerCount={career.university._count.careers}
+            reviews={career.university.reviews}
+          />
         </TabsContent>
 
-        {/* Plan de estudios agrupado por anio y luego por materia */}
         {career.studyPlans.length > 0 && (
           <TabsContent value="plan" className="mt-6 space-y-4">
             {Object.entries(subjectsByYear)

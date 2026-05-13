@@ -3,16 +3,15 @@
 import { useState } from "react"
 import Link from "next/link"
 import { useApiQuery } from "@/lib/api"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button, buttonVariants } from "@/components/ui/button"
+import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select"
+import { CareerCard } from "@/components/career-card"
 
 type University = { id: string; name: string }
 import { cn } from "@/lib/utils"
-import { Search, MapPin, Users, Clock, Bookmark, BookmarkCheck, SearchX, Scale } from "lucide-react"
+import { Search, SearchX } from "lucide-react"
 import { EmptyState } from "@/components/empty-state"
 import { ErrorState } from "@/components/error-state"
 import { useSavedCareers } from "@/app/mis-carreras/page"
@@ -30,16 +29,11 @@ type Career = {
   modality: "PRESENCIAL" | "HIBRIDO" | "ONLINE"
   description: string | null
   studentCount: number
-  university: { name: string; city: string; province: string }
+  university: { id: string; name: string; city: string; province: string }
   area: { id: string; name: string }
   rating: number | null
 }
 
-const MODALITY_LABEL: Record<Career["modality"], string> = {
-  PRESENCIAL: "Presencial",
-  HIBRIDO: "Híbrido",
-  ONLINE: "Online",
-}
 
 export default function CarrerasPage() {
   const { isSaved, save, remove } = useSavedCareers()
@@ -163,62 +157,17 @@ export default function CarrerasPage() {
             ))
           // Render real de cards una vez cargados los datos
           : careers?.map((career) => (
-              <Card key={career.id} className="hover:shadow-lg transition-shadow">
-                <CardHeader>
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <CardTitle className="text-lg">{career.name}</CardTitle>
-                      <CardDescription className="mt-1">
-                        {career.university.name}
-                      </CardDescription>
-                    </div>
-                    <Badge variant="outline">
-                      {MODALITY_LABEL[career.modality]}
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-3 text-sm">
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <MapPin className="h-4 w-4 shrink-0" />
-                      {career.university.city}, {career.university.province}
-                    </div>
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Clock className="h-4 w-4 shrink-0" />
-                      {career.durationYears} {career.durationYears === 1 ? "año" : "años"}
-                    </div>
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Users className="h-4 w-4 shrink-0" />
-                      {career.studentCount.toLocaleString("es-AR")} estudiantes
-                    </div>
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      {career.rating !== null ? `⭐ ${career.rating} / 5.0` : "Sin reseñas"}
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <Link href={`/carreras/${career.id}`} className={cn(buttonVariants(), "flex-1")}>Ver detalles</Link>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => isComparing(career.id) ? removeFromCompare(career.id) : addToCompare(career.id)}
-                      title={isComparing(career.id) ? "Quitar del comparador" : canAdd ? "Agregar al comparador" : "Comparador lleno (máx. 3)"}
-                      disabled={!isComparing(career.id) && !canAdd}
-                    >
-                      <Scale className={`h-4 w-4 ${isComparing(career.id) ? "text-primary" : ""}`} />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => isSaved(career.id) ? remove(career.id) : save(career.id)}
-                      title={isSaved(career.id) ? "Quitar de mis carreras" : "Guardar en mis carreras"}
-                    >
-                      {isSaved(career.id)
-                        ? <BookmarkCheck className="h-4 w-4 text-primary" />
-                        : <Bookmark className="h-4 w-4" />}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
+              <CareerCard
+                key={career.id}
+                career={career}
+                university={career.university}
+                isSaved={isSaved(career.id)}
+                onSave={() => isSaved(career.id) ? remove(career.id) : save(career.id)}
+                isComparing={isComparing(career.id)}
+                canAddToCompare={canAdd}
+                onCompare={() => isComparing(career.id) ? removeFromCompare(career.id) : addToCompare(career.id)}
+                showUniversityLink
+              />
             ))}
       </section>
 
