@@ -128,7 +128,7 @@ export default function Home() {
                       </div>
                       <Button className="w-full mt-4" variant="outline">
                         Ver detalles <ArrowRight className="h-4 w-4 ml-2" />
-                      </Button>
+                      </Button> 
                     </div>
                   </CardContent>
                 </Card>
