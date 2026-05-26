@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { CareerCard } from "@/components/career-card"
 import { UniversityInfoCard } from "@/components/university-info-card"
+import { StarRating } from "@/components/star-rating"
 import { useSavedCareers } from "@/app/mis-carreras/page"
 import { useCompareCareers } from "@/hooks/use-compare-careers"
 import { EmptyState } from "@/components/empty-state"
@@ -49,20 +50,6 @@ type UniversityCareersResponse = {
 }
 
 
-function StarRating({ rating }: { rating: number }) {
-  return (
-    <div className="flex items-center gap-1">
-      {Array.from({ length: 5 }).map((_, i) => (
-        <Star
-          key={i}
-          className={`h-4 w-4 ${i < Math.round(rating) ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground"}`}
-        />
-      ))}
-      <span className="ml-1 text-sm font-medium">{rating} / 5.0</span>
-    </div>
-  )
-}
-
 export default function UniversityDetailPage({
   params,
 }: {
@@ -89,6 +76,11 @@ export default function UniversityDetailPage({
   const careersByArea = data?.careersByArea || {}
   const areas = Object.keys(careersByArea).sort()
   const totalCareers = Object.values(careersByArea).reduce((sum, list) => sum + list.length, 0)
+  const uniReviews = university?.reviews ?? []
+  const uniRating =
+    uniReviews.length > 0
+      ? Math.round((uniReviews.reduce((s, r) => s + r.rating, 0) / uniReviews.length) * 10) / 10
+      : null
 
   return (
     <div className="space-y-8 p-6 lg:p-8">
@@ -140,7 +132,8 @@ export default function UniversityDetailPage({
             <UniversityInfoCard
               university={university}
               careerCount={totalCareers}
-              reviews={university.reviews}
+              rating={uniRating}
+              reviewCount={uniReviews.length}
             />
           )}
 

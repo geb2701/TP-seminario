@@ -114,7 +114,7 @@ export default function CarrerasPage() {
           <Select value={modality} onValueChange={(v) => setModality(v ?? "todos")}>
             <SelectTrigger className="w-full px-3">
               <span className={cn("flex-1 text-left text-sm truncate", modality === "todos" && "text-muted-foreground")}>
-                {modality === "todos" ? "Modalidad" : MODALITY_LABEL[modality as Career["modality"]]}
+                {modality === "todos" ? "Modalidad" : modality === "PRESENCIAL" ? "Presencial" : modality === "HIBRIDO" ? "Híbrido" : "Online"}
               </span>
             </SelectTrigger>
             <SelectContent>

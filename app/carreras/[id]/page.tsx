@@ -18,6 +18,7 @@ import {
 import { EmptyState } from "@/components/empty-state"
 import { ErrorState } from "@/components/error-state"
 import { UniversityInfoCard } from "@/components/university-info-card"
+import { StarRating } from "@/components/star-rating"
 import { useCompareCareers } from "@/hooks/use-compare-careers"
 import { useDynamicBreadcrumb } from "@/components/breadcrumb-context"
 
@@ -73,8 +74,9 @@ type CareerDetail = {
     foundedYear: number | null
     description: string | null
     logoUrl: string | null
-    reviews: { rating: number }[]
-    _count: { careers: number }
+    careerCount: number
+    rating: number | null
+    reviewCount: number
   }
   area: { id: string; name: string }
   studyPlans: StudyPlan[]
@@ -86,22 +88,6 @@ const MODALITY_LABEL: Record<CareerDetail["modality"], string> = {
   PRESENCIAL: "Presencial",
   HIBRIDO: "Híbrido",
   ONLINE: "Online",
-}
-
-// Convierte un numero de rating en una fila de estrellas visuales.
-// Se reutiliza para no repetir la misma logica en cada card de reseña.
-function StarRating({ rating }: { rating: number }) {
-  return (
-    <div className="flex items-center gap-1">
-      {Array.from({ length: 5 }).map((_, i) => (
-        <Star
-          key={i}
-          className={`h-4 w-4 ${i < Math.round(rating) ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground"}`}
-        />
-      ))}
-      <span className="ml-1 text-sm font-medium">{rating} / 5.0</span>
-    </div>
-  )
 }
 
 // Vista placeholder mientras el detalle todavia se esta cargando desde la API.
@@ -198,7 +184,7 @@ export default function CarreraDetailPage({
               size="sm"
               onClick={() => isComparing(career.id) ? removeFromCompare(career.id) : addToCompare(career.id)}
               disabled={!isComparing(career.id) && !canAdd}
-              title={!isComparing(career.id) && !canAdd ? "Comparador lleno (máx. 3)" : undefined}
+              title={!isComparing(career.id) && !canAdd ? "Comparador lleno (máx. 4)" : undefined}
             >
               <Scale className="h-4 w-4 mr-2" />
               {isComparing(career.id) ? "En comparador" : "Comparar"}
@@ -285,8 +271,9 @@ export default function CarreraDetailPage({
         <TabsContent value="universidad" className="mt-6">
           <UniversityInfoCard
             university={career.university}
-            careerCount={career.university._count.careers}
-            reviews={career.university.reviews}
+            careerCount={career.university.careerCount}
+            rating={career.university.rating}
+            reviewCount={career.university.reviewCount}
           />
         </TabsContent>
 

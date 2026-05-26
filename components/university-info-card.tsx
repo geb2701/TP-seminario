@@ -15,15 +15,11 @@ type UniversityInfoCardProps = {
     description?: string | null
   }
   careerCount?: number
-  reviews?: { rating: number }[]
+  rating?: number | null
+  reviewCount?: number
 }
 
-export function UniversityInfoCard({ university, careerCount, reviews }: UniversityInfoCardProps) {
-  const avgRating =
-    reviews && reviews.length > 0
-      ? (reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1)
-      : null
-
+export function UniversityInfoCard({ university, careerCount, rating, reviewCount }: UniversityInfoCardProps) {
   return (
     <Card>
       <CardHeader>
@@ -63,10 +59,10 @@ export function UniversityInfoCard({ university, careerCount, reviews }: Univers
               {careerCount} {careerCount === 1 ? "carrera" : "carreras"}
             </div>
           )}
-          {reviews !== undefined && (
+          {rating !== undefined && (
             <div className="flex items-center gap-2 text-muted-foreground">
               <Star className="h-4 w-4 shrink-0" />
-              {avgRating ? `${avgRating} / 5.0 (${reviews.length} reseñas)` : "Sin reseñas"}
+              {rating ? `${rating} / 5.0 (${reviewCount} reseñas)` : "Sin reseñas"}
             </div>
           )}
         </div>
