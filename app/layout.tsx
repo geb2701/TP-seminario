@@ -13,7 +13,7 @@ const fontSans = Open_Sans({
 })
 
 export const metadata: Metadata = {
-  title: 'Buscador de Carreras',
+  title: 'UniFlow',
   description: 'Explorá y comparé carreras universitarias en Argentina',
 }
 
