@@ -8,6 +8,7 @@ import {
   BarChart3,
   Users,
 } from "lucide-react"
+import { usePathname } from "next/navigation"
 
 import {
   Sidebar,
@@ -79,6 +80,7 @@ function ThemeToggle() {
 }
 
 export function AppSidebar() {
+  const pathname = usePathname()
   const { state } = useSidebar()
   const pathname = usePathname()
   // DEBUG: toggle forced state for testing empty/error UI components
@@ -90,12 +92,16 @@ export function AppSidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" render={<Link href="/" className="flex items-center gap-2" />}>
-              <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-600 to-purple-600 text-white">
-                <GraduationCap className="size-4" />
+              <div className="flex aspect-square size-12 items-center justify-center rounded-lg overflow-hidden bg-muted">
+                <img
+                  src="/uniflow-logo.png"
+                  alt="Logo UniFlow"
+                  className="h-full w-full object-contain"
+                />
               </div>
               <div className="flex flex-col gap-0.5 leading-none">
-                <span className="font-semibold">Carreras</span>
-                <span className="text-xs text-muted-foreground">Finder</span>
+                <span className="font-semibold text-lg">UniFlow</span>
+                <span className="text-xs text-muted-foreground">Plataforma académica</span>
               </div>
             </SidebarMenuButton>
           </SidebarMenuItem>

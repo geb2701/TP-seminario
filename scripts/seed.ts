@@ -64,6 +64,7 @@ async function main() {
     prisma.university.create({
       data: {
         name: "Universidad de Buenos Aires",
+        shortCode: "UBA",
         city: "CABA",
         province: "Buenos Aires",
         type: "PUBLIC",
@@ -71,11 +72,13 @@ async function main() {
         foundedYear: 1821,
         description:
           "La UBA es la universidad más grande de Argentina y una de las más prestigiosas de América Latina. Cuenta con 13 facultades y ofrece más de 100 carreras de grado.",
+        logoUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f9/UBA.svg/960px-UBA.svg.png",
       },
     }),
     prisma.university.create({
       data: {
         name: "Universidad Nacional de La Plata",
+        shortCode: "UNLP",
         city: "CABA",
         province: "Buenos Aires",
         type: "PUBLIC",
@@ -83,11 +86,13 @@ async function main() {
         foundedYear: 1897,
         description:
           "La UNLP es una de las universidades nacionales más importantes del país, reconocida por su excelencia académica y su fuerte vínculo con la comunidad.",
+        logoUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/7/74/UNLP_Logo_%28cropped%29.svg/960px-UNLP_Logo_%28cropped%29.svg.png",
       },
     }),
     prisma.university.create({
       data: {
         name: "Universidad Nacional de Córdoba",
+        shortCode: "UNC",
         city: "Córdoba",
         province: "Córdoba",
         type: "PUBLIC",
@@ -95,11 +100,13 @@ async function main() {
         foundedYear: 1613,
         description:
           "La UNC es la universidad más antigua de Argentina y una de las más antiguas de América Latina. Fue cuna de la Reforma Universitaria de 1918.",
+        logoUrl: "https://upload.wikimedia.org/wikipedia/commons/d/d7/Unc_univ_nac_cordoba_textlogo.png",
       },
     }),
     prisma.university.create({
       data: {
         name: "Universidad Tecnológica Nacional",
+        shortCode: "UTN",
         city: "CABA",
         province: "Buenos Aires",
         type: "PUBLIC",
@@ -107,11 +114,13 @@ async function main() {
         foundedYear: 1948,
         description:
           "La UTN es la única universidad nacional dedicada exclusivamente a la educación tecnológica, con presencia en todo el país a través de sus facultades regionales.",
+        logoUrl: "https://upload.wikimedia.org/wikipedia/commons/6/67/UTN_logo.jpg",
       },
     }),
     prisma.university.create({
       data: {
         name: "Universidad Nacional de Rosario",
+        shortCode: "UNR",
         city: "Rosario",
         province: "Santa Fe",
         type: "PUBLIC",
@@ -119,11 +128,13 @@ async function main() {
         foundedYear: 1968,
         description:
           "La UNR es la segunda universidad nacional más grande del país, con doce facultades y una amplia oferta académica en la ciudad de Rosario.",
+        logoUrl: "https://upload.wikimedia.org/wikipedia/commons/f/f5/Logo-unr.png",
       },
     }),
     prisma.university.create({
       data: {
         name: "Universidad de San Andrés",
+        shortCode: "UDESA",
         city: "Victoria",
         province: "Buenos Aires",
         type: "PRIVATE",
@@ -131,11 +142,13 @@ async function main() {
         foundedYear: 1988,
         description:
           "UDESA es una universidad privada de élite reconocida por la calidad de sus programas de negocios, derecho y ciencias sociales.",
+        logoUrl: "https://upload.wikimedia.org/wikipedia/commons/3/3f/UdeSA.png",
       },
     }),
     prisma.university.create({
       data: {
         name: "Universidad Torcuato Di Tella",
+        shortCode: "UTDT",
         city: "CABA",
         province: "Buenos Aires",
         type: "PRIVATE",
@@ -143,11 +156,13 @@ async function main() {
         foundedYear: 1991,
         description:
           "La Di Tella es una universidad privada con fuerte énfasis en la investigación y la innovación, reconocida por sus programas de economía, derecho y administración.",
+        logoUrl: "https://upload.wikimedia.org/wikipedia/commons/5/54/UTDT.JPG",
       },
     }),
     prisma.university.create({
       data: {
         name: "Pontificia Universidad Católica Argentina",
+        shortCode: "UCA",
         city: "CABA",
         province: "Buenos Aires",
         type: "PRIVATE",
@@ -155,11 +170,13 @@ async function main() {
         foundedYear: 1958,
         description:
           "La UCA es la universidad católica más importante de Argentina, con una sólida formación en valores y excelencia académica en diversas disciplinas.",
+        logoUrl: "https://upload.wikimedia.org/wikipedia/commons/c/cb/Universidad_Cat%C3%B3lica_Argentina.png",
       },
     }),
     prisma.university.create({
       data: {
         name: "Universidad Nacional de Tucumán",
+        shortCode: "UNT",
         city: "San Miguel de Tucumán",
         province: "Tucumán",
         type: "PUBLIC",
@@ -167,11 +184,13 @@ async function main() {
         foundedYear: 1914,
         description:
           "La UNT es la principal institución educativa del noroeste argentino, con una destacada trayectoria en ciencias exactas, ingeniería y ciencias de la salud.",
+        logoUrl: "https://upload.wikimedia.org/wikipedia/commons/9/99/Universidad_Nacional_de_Tucum%C3%A1n.JPG",
       },
     }),
     prisma.university.create({
       data: {
         name: "Universidad Nacional de Mar del Plata",
+        shortCode: "UNMDP",
         city: "Mar del Plata",
         province: "Buenos Aires",
         type: "PUBLIC",
@@ -179,6 +198,7 @@ async function main() {
         foundedYear: 1961,
         description:
           "La UNMdP es la universidad nacional más importante de la costa bonaerense, con gran fortaleza en ciencias exactas, humanidades y ciencias de la salud.",
+        logoUrl: "https://upload.wikimedia.org/wikipedia/commons/a/a1/Unidemardelplata.png",
       },
     }),
   ]);

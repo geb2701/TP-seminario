@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { useSearchParams } from "next/navigation"
 import Link from "next/link"
+import Image from "next/image"
 import { useApiQuery } from "@/lib/api"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button, buttonVariants } from "@/components/ui/button"
@@ -18,6 +19,7 @@ import { ErrorState } from "@/components/error-state"
 type University = {
   id: string
   name: string
+  shortCode: string | null
   city: string
   province: string
   type: "PUBLIC" | "PRIVATE"
@@ -27,6 +29,41 @@ type University = {
   logoUrl: string | null
   careerCount: number
   rating: number | null
+}
+
+function UniversityLogo({ name, logoUrl }: { name: string; logoUrl: string | null }) {
+  const [imageError, setImageError] = useState(false)
+  const useFullCoverLogo =
+    name === "Universidad Tecnológica Nacional" ||
+    name === "Universidad Nacional de Mar del Plata"
+
+  const initials = name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("")
+
+  if (!logoUrl || imageError) {
+    return (
+      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-muted text-sm font-semibold text-muted-foreground">
+        {initials}
+      </div>
+    )
+  }
+
+  return (
+    <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-muted">
+      <Image
+        src={logoUrl}
+        alt={`Logo de ${name}`}
+        fill
+        className={cn("object-contain p-1", useFullCoverLogo && "object-cover p-0")}
+        sizes="48px"
+        onError={() => setImageError(true)}
+      />
+    </div>
+  )
 }
 
 export default function UniversidadesPage() {
@@ -58,7 +95,7 @@ export default function UniversidadesPage() {
         <div className="relative flex-1">
           <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Buscar universidad..."
+            placeholder="Buscar universidad o sigla (UBA, UTN)..."
             className="pl-8"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -108,14 +145,17 @@ export default function UniversidadesPage() {
           : universities?.map((uni) => (
               <Card key={uni.id} className="hover:shadow-lg transition-shadow">
                 <CardHeader>
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <CardTitle className="text-lg">{uni.name}</CardTitle>
-                      {uni.foundedYear && (
-                        <CardDescription className="mt-1">
-                          Fundada en {uni.foundedYear}
-                        </CardDescription>
-                      )}
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-3">
+                      <UniversityLogo name={uni.name} logoUrl={uni.logoUrl} />
+                      <div>
+                        <CardTitle className="text-lg">{uni.name}</CardTitle>
+                        {uni.foundedYear && (
+                          <CardDescription className="mt-1">
+                            Fundada en {uni.foundedYear}
+                          </CardDescription>
+                        )}
+                      </div>
                     </div>
                     <Badge variant={uni.type === "PUBLIC" ? "default" : "secondary"}>
                       {uni.type === "PUBLIC" ? "Pública" : "Privada"}
