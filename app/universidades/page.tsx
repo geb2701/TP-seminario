@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { Suspense, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
@@ -66,7 +66,7 @@ function UniversityLogo({ name, logoUrl }: { name: string; logoUrl: string | nul
   )
 }
 
-export default function UniversidadesPage() {
+function UniversidadesPageContent() {
   const searchParams = useSearchParams()
   const [search, setSearch] = useState(searchParams.get("search") ?? "")
   const [type, setType] = useState("todos")
@@ -209,5 +209,13 @@ export default function UniversidadesPage() {
         />
       )}
     </div>
+  )
+}
+
+export default function UniversidadesPage() {
+  return (
+    <Suspense>
+      <UniversidadesPageContent />
+    </Suspense>
   )
 }
