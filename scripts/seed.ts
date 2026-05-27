@@ -64,6 +64,7 @@ async function main() {
     prisma.university.create({
       data: {
         name: "Universidad de Buenos Aires",
+        shortCode: "UBA",
         city: "CABA",
         province: "Buenos Aires",
         type: "PUBLIC",
@@ -77,6 +78,7 @@ async function main() {
     prisma.university.create({
       data: {
         name: "Universidad Nacional de La Plata",
+        shortCode: "UNLP",
         city: "CABA",
         province: "Buenos Aires",
         type: "PUBLIC",
@@ -90,6 +92,7 @@ async function main() {
     prisma.university.create({
       data: {
         name: "Universidad Nacional de Córdoba",
+        shortCode: "UNC",
         city: "Córdoba",
         province: "Córdoba",
         type: "PUBLIC",
@@ -103,6 +106,7 @@ async function main() {
     prisma.university.create({
       data: {
         name: "Universidad Tecnológica Nacional",
+        shortCode: "UTN",
         city: "CABA",
         province: "Buenos Aires",
         type: "PUBLIC",
@@ -116,6 +120,7 @@ async function main() {
     prisma.university.create({
       data: {
         name: "Universidad Nacional de Rosario",
+        shortCode: "UNR",
         city: "Rosario",
         province: "Santa Fe",
         type: "PUBLIC",
@@ -129,6 +134,7 @@ async function main() {
     prisma.university.create({
       data: {
         name: "Universidad de San Andrés",
+        shortCode: "UDESA",
         city: "Victoria",
         province: "Buenos Aires",
         type: "PRIVATE",
@@ -142,6 +148,7 @@ async function main() {
     prisma.university.create({
       data: {
         name: "Universidad Torcuato Di Tella",
+        shortCode: "UTDT",
         city: "CABA",
         province: "Buenos Aires",
         type: "PRIVATE",
@@ -155,6 +162,7 @@ async function main() {
     prisma.university.create({
       data: {
         name: "Pontificia Universidad Católica Argentina",
+        shortCode: "UCA",
         city: "CABA",
         province: "Buenos Aires",
         type: "PRIVATE",
@@ -168,6 +176,7 @@ async function main() {
     prisma.university.create({
       data: {
         name: "Universidad Nacional de Tucumán",
+        shortCode: "UNT",
         city: "San Miguel de Tucumán",
         province: "Tucumán",
         type: "PUBLIC",
@@ -181,6 +190,7 @@ async function main() {
     prisma.university.create({
       data: {
         name: "Universidad Nacional de Mar del Plata",
+        shortCode: "UNMDP",
         city: "Mar del Plata",
         province: "Buenos Aires",
         type: "PUBLIC",

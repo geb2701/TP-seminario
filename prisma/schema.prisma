@@ -21,6 +21,7 @@ enum Modality {
 model University {
   id               String             @id @default(cuid())
   name             String
+  shortCode        String?            @unique
   city             String
   province         String
   type             UniversityType

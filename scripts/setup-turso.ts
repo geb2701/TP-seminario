@@ -10,6 +10,7 @@ const statements = [
   `CREATE TABLE IF NOT EXISTS "University" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "name" TEXT NOT NULL,
+    "shortCode" TEXT,
     "city" TEXT NOT NULL,
     "province" TEXT NOT NULL,
     "type" TEXT NOT NULL,
@@ -85,6 +86,18 @@ async function main() {
     const table = stmt.match(/CREATE TABLE IF NOT EXISTS "(\w+)"/)?.[1];
     console.log(`✓ ${table}`);
   }
+
+  // Backfill-safe schema update for existing Turso DBs created before shortCode existed.
+  try {
+    await client.execute(`ALTER TABLE "University" ADD COLUMN "shortCode" TEXT`);
+    console.log("✓ University.shortCode agregado");
+  } catch {
+    // Column already exists or unsupported alteration path; ignore.
+  }
+
+  await client.execute(
+    `CREATE UNIQUE INDEX IF NOT EXISTS "University_shortCode_key" ON "University"("shortCode")`
+  );
 
   const tables = await client.execute(
     "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
