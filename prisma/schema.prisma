@@ -102,3 +102,11 @@ model UniversityReview {
   university   University @relation(fields: [universityId], references: [id])
   createdAt    DateTime   @default(now())
 }
+
+model VocationalResult {
+  id         String   @id @default(cuid())
+  personName String?
+  scores     String
+  topArea    String
+  createdAt  DateTime @default(now())
+}

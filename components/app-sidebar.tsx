@@ -7,9 +7,9 @@ import {
   Home,
   BarChart3,
   Users,
+  BrainCircuit,
 } from "lucide-react"
 import { usePathname } from "next/navigation"
-
 import {
   Sidebar,
   SidebarContent,
@@ -22,7 +22,6 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Sun, Moon } from "lucide-react"
 import { useTheme } from "next-themes"
@@ -56,6 +55,11 @@ const data = {
       url: "/universidades",
       icon: GraduationCap,
     },
+    {
+      title: "Orientación vocacional",
+      url: "/orientacion",
+      icon: BrainCircuit,
+    },
     // {
     //   title: "Comunidad",
     //   url: "/comunidad",
@@ -82,7 +86,6 @@ function ThemeToggle() {
 export function AppSidebar() {
   const pathname = usePathname()
   const { state } = useSidebar()
-  const pathname = usePathname()
   // DEBUG: toggle forced state for testing empty/error UI components
   const { forcedState, setForcedState } = useDebugState()
 

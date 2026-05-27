@@ -16,6 +16,8 @@ import { EmptyState } from "@/components/empty-state"
 import { ErrorState } from "@/components/error-state"
 import { useSavedCareers } from "@/app/mis-carreras/page"
 import { useCompareCareers } from "@/hooks/use-compare-careers"
+import { useVocationalProfile } from "@/hooks/use-vocational-profile"
+import { BrainCircuit } from "lucide-react"
 
 // Area disponible para filtrar el listado de carreras.
 type Area = { id: string; name: string }
@@ -38,6 +40,7 @@ type Career = {
 export default function CarrerasPage() {
   const { isSaved, save, remove } = useSavedCareers()
   const { isComparing, canAdd, add: addToCompare, remove: removeFromCompare } = useCompareCareers()
+  const { profile } = useVocationalProfile()
 
   // Estado de filtros en UI.
   const [search, setSearch] = useState("")
@@ -71,6 +74,32 @@ export default function CarrerasPage() {
           Encontrá y compará carreras universitarias en Argentina
         </p>
       </section>
+
+      {profile && (
+        <section>
+          {areaId && areas?.find((a) => a.id === areaId)?.name === profile.topArea ? (
+            <button
+              onClick={() => setAreaId("")}
+              className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/5 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/10 transition-colors"
+            >
+              <BrainCircuit className="size-3.5" />
+              Mostrando carreras de tu perfil: {profile.topArea}
+              <span className="ml-1 opacity-60">✕</span>
+            </button>
+          ) : (
+            <button
+              onClick={() => {
+                const match = areas?.find((a) => a.name === profile.topArea)
+                if (match) setAreaId(match.id)
+              }}
+              className="inline-flex items-center gap-2 rounded-full border border-border bg-muted/50 px-3 py-1.5 text-xs font-medium text-muted-foreground hover:border-primary/40 hover:text-primary transition-colors"
+            >
+              <BrainCircuit className="size-3.5" />
+              Ver recomendadas para tu perfil: {profile.topArea}
+            </button>
+          )}
+        </section>
+      )}
 
       <section className="space-y-3">
         <div className="relative">
