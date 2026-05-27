@@ -5,17 +5,7 @@ import { BrainCircuit, X, ArrowRight } from "lucide-react"
 import { useVocationalProfile } from "@/hooks/use-vocational-profile"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-
-const AREA_EMOJIS: Record<string, string> = {
-  "Ingeniería y Tecnología": "⚙️",
-  "Ciencias de la Salud": "🏥",
-  "Ciencias Económicas": "📊",
-  "Derecho y Ciencias Sociales": "⚖️",
-  "Humanidades y Artes": "🎨",
-  "Ciencias Exactas y Naturales": "🔬",
-  "Arquitectura y Diseño": "🏛️",
-  "Comunicación y Periodismo": "📡",
-}
+import { AREA_EMOJIS } from "@/app/orientacion/constants"
 
 export function VocationalProfileBanner() {
   const { profile, hydrated, clearProfile } = useVocationalProfile()

@@ -25,6 +25,7 @@ import {
   Sparkles,
 } from "lucide-react"
 import { useVocationalProfile } from "@/hooks/use-vocational-profile"
+import { AREA_COLORS, AREA_EMOJIS } from "./constants"
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
 
@@ -56,27 +57,7 @@ const AREAS = [
   "Comunicación y Periodismo",
 ]
 
-const AREA_COLORS: Record<string, string> = {
-  "Ingeniería y Tecnología": "#6366f1",
-  "Ciencias de la Salud": "#10b981",
-  "Ciencias Económicas": "#f59e0b",
-  "Derecho y Ciencias Sociales": "#ef4444",
-  "Humanidades y Artes": "#ec4899",
-  "Ciencias Exactas y Naturales": "#3b82f6",
-  "Arquitectura y Diseño": "#8b5cf6",
-  "Comunicación y Periodismo": "#14b8a6",
-}
-
-const AREA_EMOJIS: Record<string, string> = {
-  "Ingeniería y Tecnología": "⚙️",
-  "Ciencias de la Salud": "🏥",
-  "Ciencias Económicas": "📊",
-  "Derecho y Ciencias Sociales": "⚖️",
-  "Humanidades y Artes": "🎨",
-  "Ciencias Exactas y Naturales": "🔬",
-  "Arquitectura y Diseño": "🏛️",
-  "Comunicación y Periodismo": "📡",
-}
+// AREA_COLORS y AREA_EMOJIS viven en ./constants (compartidos con el banner de perfil).
 
 // ─── Fase 1: preguntas generales con pesos cruzados ──────────────────────────
 
@@ -183,6 +164,15 @@ interface Phase2Question {
   careerWeights: Record<string, number>
 }
 
+// Normaliza nombres de carrera para comparar contra los que vienen de la DB.
+// Unifica la forma Unicode (NFC) y recorta espacios para que diferencias de
+// composición de acentos (p. ej. "í" vs "í") no rompan el matching.
+function normalizeCareerName(name: string): string {
+  return name.normalize("NFC").trim()
+}
+
+// TODO: migrar estas preguntas y pesos (fase 2) a la DB con un seed, en lugar de
+// tenerlos hardcodeados acá. Así el matching deja de depender de strings literales.
 const AREA_CAREER_QUESTIONS: Record<string, Phase2Question[]> = {
   "Ingeniería y Tecnología": [
     {
@@ -409,8 +399,9 @@ function calcCareerScores(
     qs.forEach((q, qi) => {
       const answer = answers[`${ai}_${qi}`] ?? 0
       Object.entries(q.careerWeights).forEach(([name, weight]) => {
-        totals[name] = (totals[name] ?? 0) + answer * weight
-        maxTotals[name] = (maxTotals[name] ?? 0) + 4 * weight
+        const key = normalizeCareerName(name)
+        totals[key] = (totals[key] ?? 0) + answer * weight
+        maxTotals[key] = (maxTotals[key] ?? 0) + 4 * weight
       })
     })
   })
@@ -461,6 +452,9 @@ const PHASE3_QUESTIONS: Phase3Question[] = [
       { value: "6", label: "6 años o más", description: "Medicina, arquitectura y similares" },
     ],
   },
+  // TODO: "mobility" y "priority" se recolectan pero todavía no se usan en
+  // ningún filtro de recomendación (ver ResultsScreen, que sólo filtra por
+  // modality/type/duration). Incorporarlos al filtro o dejar de pedirlos.
   {
     id: "mobility",
     text: "¿Estás dispuesto/a a mudarte o viajar para estudiar?",
@@ -542,6 +536,11 @@ export function VocationalTest() {
     setSavedScores(sorted)
     setTop3Areas(top3)
     setPersonName(profile.personName ?? "")
+    // Restauramos las respuestas de fase 2 guardadas para recomputar la afinidad
+    // con carreras; sin esto la fase 2 mostraría 0% al cargar resultados previos.
+    const savedPhase2 = profile.phase2Answers ?? {}
+    setPhase2Answers(savedPhase2)
+    setCareerScores(calcCareerScores(savedPhase2, top3))
     if (profile.phase3Answers) setPhase3Answers(profile.phase3Answers)
     setSaved(true)
     setStep(RESULT_STEP)
@@ -584,7 +583,7 @@ export function VocationalTest() {
     const computed = calcCareerScores(phase2Answers, top3Areas)
     setCareerScores(computed)
 
-    saveProfile({ scores, topArea, personName: personName.trim() || undefined, phase3Answers })
+    saveProfile({ scores, topArea, personName: personName.trim() || undefined, phase2Answers, phase3Answers })
     setSaved(true)
     setSaving(false)
 
@@ -607,7 +606,7 @@ export function VocationalTest() {
         }
       }
 
-      merged.sort((a, b) => (computed[b.name] ?? 0) - (computed[a.name] ?? 0))
+      merged.sort((a, b) => (computed[normalizeCareerName(b.name)] ?? 0) - (computed[normalizeCareerName(a.name)] ?? 0))
       setCareers(merged.slice(0, 6))
     } catch {
       // silently ignore
@@ -1062,7 +1061,7 @@ function ResultsScreen({
     careersByArea[c.area.name].push(c)
   }
   for (const area of top3Areas) {
-    careersByArea[area]?.sort((a, b) => (careerScores[b.name] ?? 0) - (careerScores[a.name] ?? 0))
+    careersByArea[area]?.sort((a, b) => (careerScores[normalizeCareerName(b.name)] ?? 0) - (careerScores[normalizeCareerName(a.name)] ?? 0))
   }
 
   const medals = ["🥇", "🥈", "🥉"]
@@ -1156,7 +1155,7 @@ function ResultsScreen({
                   </p>
                   <div className="space-y-2">
                     {areaCareers.map((career) => {
-                      const score = careerScores[career.name] ?? 0
+                      const score = careerScores[normalizeCareerName(career.name)] ?? 0
                       return (
                         <Link
                           key={career.id}
@@ -1241,7 +1240,7 @@ function ResultsScreen({
           if (typePref && typePref !== "ANY" && c.university.type !== typePref) return false
           if (durationPref && durationPref !== "6" && c.durationYears > parseInt(durationPref)) return false
           return true
-        }).sort((a, b) => (careerScores[b.name] ?? 0) - (careerScores[a.name] ?? 0))
+        }).sort((a, b) => (careerScores[normalizeCareerName(b.name)] ?? 0) - (careerScores[normalizeCareerName(a.name)] ?? 0))
 
         return (
           <section className="space-y-4 rounded-xl border border-primary/20 bg-primary/5 p-5">
@@ -1277,7 +1276,7 @@ function ResultsScreen({
             ) : (
               <div className="space-y-2">
                 {recommended.map((career) => {
-                  const score = careerScores[career.name] ?? 0
+                  const score = careerScores[normalizeCareerName(career.name)] ?? 0
                   const color = AREA_COLORS[career.area.name] ?? "hsl(var(--primary))"
                   return (
                     <Link

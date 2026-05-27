@@ -8,6 +8,7 @@ export interface VocationalProfile {
   scores: Record<string, number>
   topArea: string
   personName?: string
+  phase2Answers?: Record<string, number>
   phase3Answers?: Record<string, string>
   savedAt: string
 }

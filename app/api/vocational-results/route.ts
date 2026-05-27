@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 
+// TODO: esta ruta todavía no se llama desde ningún lado. El test vocacional
+// guarda el perfil en localStorage (useVocationalProfile), no contra esta API.
+// Conectar el flujo de guardado a estos endpoints o eliminarlos si no se usan.
+
 export async function POST(req: NextRequest) {
   const body = await req.json()
   const { personName, scores, topArea } = body
