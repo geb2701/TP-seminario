@@ -13,6 +13,7 @@ import {
   CheckCircle2,
 } from "lucide-react"
 import Link from "next/link"
+import { VocationalProfileBanner } from "@/components/vocational-profile-banner"
 
 const features = [
   {
@@ -66,6 +67,8 @@ const steps = [
 export default function Home() {
   return (
     <div className="flex-1 space-y-16 p-6 lg:p-10 max-w-5xl mx-auto w-full">
+
+      <VocationalProfileBanner />
 
       {/* Hero */}
       <section className="space-y-6 pt-4">
