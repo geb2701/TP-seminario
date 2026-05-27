@@ -19,6 +19,10 @@ export async function GET(
           },
           orderBy: { name: "asc" },
         },
+        reviews: {
+          orderBy: { createdAt: "desc" },
+          select: { id: true, rating: true, content: true, authorName: true, createdAt: true },
+        },
       },
     });
 
@@ -52,6 +56,7 @@ export async function GET(
           name: career.name,
           modality: career.modality,
           durationYears: career.durationYears,
+          studentCount: career.studentCount,
           rating,
           areaId: career.areaId,
           areaName: career.area?.name || "Sin clasificar",
@@ -65,6 +70,7 @@ export async function GET(
           name: string;
           modality: string;
           durationYears: number;
+          studentCount: number;
           rating: number | null;
           areaId: string | null;
           areaName: string;
@@ -75,7 +81,15 @@ export async function GET(
     return NextResponse.json({
       university: {
         id: university.id,
-        name: university.name
+        name: university.name,
+        city: university.city,
+        province: university.province,
+        type: university.type,
+        website: university.website,
+        foundedYear: university.foundedYear,
+        description: university.description,
+        logoUrl: university.logoUrl,
+        reviews: university.reviews,
       },
       careersByArea,
     });

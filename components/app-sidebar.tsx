@@ -22,6 +22,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 import Link from "next/link"
+import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Sun, Moon } from "lucide-react"
 import { useTheme } from "next-themes"
@@ -81,6 +82,7 @@ function ThemeToggle() {
 export function AppSidebar() {
   const pathname = usePathname()
   const { state } = useSidebar()
+  const pathname = usePathname()
   // DEBUG: toggle forced state for testing empty/error UI components
   const { forcedState, setForcedState } = useDebugState()
 
@@ -112,7 +114,7 @@ export function AppSidebar() {
             <SidebarMenuItem key={item.url}>
               <SidebarMenuButton
                 render={<Link href={item.url} className="flex items-center gap-2" />}
-                isActive={pathname === item.url || (item.url !== "/" && pathname.startsWith(item.url))}
+                isActive={item.url === "/" ? pathname === "/" : pathname.startsWith(item.url)}
               >
                 <item.icon className="size-4" />
                 <span>{item.title}</span>

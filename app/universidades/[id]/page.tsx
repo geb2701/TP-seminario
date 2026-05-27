@@ -1,20 +1,25 @@
 "use client"
 
 import { use } from "react"
-import Link from "next/link"
 import { useApiQuery } from "@/lib/api"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
-import { Button, buttonVariants } from "@/components/ui/button"
+import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { cn } from "@/lib/utils"
-import { ArrowLeft, BookOpen, Clock, Star } from "lucide-react"
+import { CareerCard } from "@/components/career-card"
+import { UniversityInfoCard } from "@/components/university-info-card"
+import { StarRating } from "@/components/star-rating"
+import { useSavedCareers } from "@/app/mis-carreras/page"
+import { useCompareCareers } from "@/hooks/use-compare-careers"
+import { EmptyState } from "@/components/empty-state"
+import { Star } from "lucide-react"
+
+type Review = {
+  id: string
+  rating: number
+  content: string
+  authorName: string | null
+  createdAt: string
+}
 
 type UniversityCareersResponse = {
   university: {
@@ -23,6 +28,11 @@ type UniversityCareersResponse = {
     city: string
     province: string
     type: "PUBLIC" | "PRIVATE"
+    website: string | null
+    foundedYear: number | null
+    description: string | null
+    logoUrl: string | null
+    reviews: Review[]
   }
   careersByArea: Record<
     string,
@@ -31,6 +41,7 @@ type UniversityCareersResponse = {
       name: string
       modality: string
       durationYears: number
+      studentCount: number
       rating: number | null
       areaId: string | null
       areaName: string
@@ -38,14 +49,16 @@ type UniversityCareersResponse = {
   >
 }
 
+
 export default function UniversityDetailPage({
   params,
 }: {
   params: Promise<{ id: string }>
 }) {
   const { id } = use(params)
+  const { isSaved, save, remove } = useSavedCareers()
+  const { isComparing, canAdd, add: addToCompare, remove: removeFromCompare } = useCompareCareers()
 
-  // Obtener las carreras agrupadas por área
   const { data, isLoading, isError } = useApiQuery<UniversityCareersResponse>(
     ["university-careers", id],
     `universities/${id}/careers`
@@ -54,10 +67,6 @@ export default function UniversityDetailPage({
   if (isError) {
     return (
       <div className="space-y-6 p-6 lg:p-8">
-        <Link href="/universidades" className={cn(buttonVariants({ variant: "ghost" }))}>
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Volver
-        </Link>
         <p className="text-sm text-destructive">Error al cargar los datos de la universidad.</p>
       </div>
     )
@@ -66,103 +75,142 @@ export default function UniversityDetailPage({
   const university = data?.university
   const careersByArea = data?.careersByArea || {}
   const areas = Object.keys(careersByArea).sort()
+  const totalCareers = Object.values(careersByArea).reduce((sum, list) => sum + list.length, 0)
+  const uniReviews = university?.reviews ?? []
+  const uniRating =
+    uniReviews.length > 0
+      ? Math.round((uniReviews.reduce((s, r) => s + r.rating, 0) / uniReviews.length) * 10) / 10
+      : null
 
   return (
-    <div className="space-y-6 p-6 lg:p-8">
+    <div className="space-y-8 p-6 lg:p-8">
       {/* Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div className="space-y-2">
-          <Link href="/universidades" className={cn(buttonVariants({ variant: "ghost" }), "mb-2")}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Volver
-          </Link>
-          {isLoading ? (
-            <>
-              <Skeleton className="h-8 w-64" />
-              <Skeleton className="h-4 w-40" />
-            </>
-          ) : (
-            <>
-              <h1 className="text-6xl lg:text-7xl xl:text-8xl font-bold">{university?.name}</h1>
-            </>
-          )}
-        </div>
-        {!isLoading && (
-          <Badge variant={university?.type === "PUBLIC" ? "default" : "secondary"}>
-            {university?.type === "PUBLIC" ? "Pública" : "Privada"}
-          </Badge>
+      <div className="space-y-2">
+        {isLoading ? (
+          <>
+            <Skeleton className="h-8 w-64" />
+            <Skeleton className="h-4 w-40" />
+          </>
+        ) : (
+          <h1 className="text-6xl lg:text-7xl xl:text-8xl font-bold">{university?.name}</h1>
         )}
       </div>
 
-      {/* Carreras por área */}
       {isLoading ? (
-        <div className="space-y-8">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="space-y-4">
-              <Skeleton className="h-6 w-40" />
-              <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-                {Array.from({ length: 2 }).map((_, j) => (
-                  <Card key={j}>
-                    <CardHeader>
-                      <Skeleton className="h-5 w-48" />
-                    </CardHeader>
-                    <CardContent className="space-y-2">
-                      <Skeleton className="h-4 w-32" />
-                      <Skeleton className="h-4 w-24" />
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
+        <div className="space-y-6">
+          <Card>
+            <CardContent className="pt-6 space-y-3">
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-3/4" />
+              <Skeleton className="h-4 w-1/2" />
+            </CardContent>
+          </Card>
+          <div className="space-y-4">
+            <Skeleton className="h-6 w-40" />
+            <div className="grid gap-4 md:grid-cols-2">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <Card key={i}>
+                  <CardHeader>
+                    <Skeleton className="h-5 w-3/4" />
+                    <Skeleton className="h-4 w-1/2 mt-1" />
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <Skeleton className="h-4 w-full" />
+                      <Skeleton className="h-4 w-full" />
+                    </div>
+                    <Skeleton className="h-9 w-full" />
+                  </CardContent>
+                </Card>
+              ))}
             </div>
-          ))}
+          </div>
         </div>
-      ) : areas.length === 0 ? (
-        <p className="text-center text-muted-foreground py-12">
-          No hay carreras disponibles en esta universidad.
-        </p>
       ) : (
-        <div className="space-y-8">
-          {areas.map((area) => (
-            <div key={area} className="space-y-4">
-              <h2 className="text-lg font-semibold">{area}</h2>
-              <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-                {careersByArea[area].map((career) => (
-                  <Link
-                    key={career.id}
-                    href={`/carreras/${career.id}`}
-                    className="transition-transform hover:scale-105"
-                  >
-                    <Card className="h-full hover:shadow-lg transition-shadow cursor-pointer">
-                      <CardHeader>
-                        <CardTitle className="text-lg line-clamp-2">
-                          {career.name}
-                        </CardTitle>
-                        <CardDescription className="line-clamp-1">
-                          {career.modality}
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent className="space-y-3">
-                        <div className="flex gap-2 flex-wrap">
-                          <Badge variant="outline" className="flex items-center gap-1">
-                            <Clock className="h-3 w-3" />
-                            {career.durationYears} {career.durationYears === 1 ? "año" : "años"}
-                          </Badge>
-                          {career.rating !== null && (
-                            <Badge variant="outline" className="flex items-center gap-1">
-                              <Star className="h-3 w-3 fill-yellow-400" />
-                              {career.rating}/5
-                            </Badge>
-                          )}
-                        </div>
-                        <Button className="w-full">Ver detalles</Button>
-                      </CardContent>
-                    </Card>
-                  </Link>
-                ))}
-              </div>
+        <>
+          {university && (
+            <UniversityInfoCard
+              university={university}
+              careerCount={totalCareers}
+              rating={uniRating}
+              reviewCount={uniReviews.length}
+            />
+          )}
+
+          {/* Carreras por área */}
+          {areas.length === 0 ? (
+            <p className="text-center text-muted-foreground py-12">
+              No hay carreras disponibles en esta universidad.
+            </p>
+          ) : (
+            <div className="space-y-8">
+              <h2 className="text-xl font-semibold">Carreras</h2>
+              {areas.map((area) => (
+                <div key={area} className="space-y-4">
+                  <h3 className="text-base font-semibold text-muted-foreground">{area}</h3>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    {careersByArea[area].map((career) => (
+                      <CareerCard
+                        key={career.id}
+                        career={career}
+                        university={{
+                          id: university?.id,
+                          name: university?.name ?? "",
+                          city: university?.city ?? "",
+                          province: university?.province ?? "",
+                        }}
+                        isSaved={isSaved(career.id)}
+                        onSave={() => isSaved(career.id) ? remove(career.id) : save(career.id)}
+                        isComparing={isComparing(career.id)}
+                        canAddToCompare={canAdd}
+                        onCompare={() => isComparing(career.id) ? removeFromCompare(career.id) : addToCompare(career.id)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          )}
+
+          {/* Reseñas de la universidad */}
+          <div className="space-y-4">
+            <h2 className="text-xl font-semibold">
+              Reseñas ({university?.reviews.length ?? 0})
+            </h2>
+            {university?.reviews.length === 0 ? (
+              <EmptyState
+                icon={Star}
+                title="Todavía no hay reseñas para esta universidad"
+                description="Sé el primero en compartir tu experiencia."
+              />
+            ) : (
+              university?.reviews.map((review) => (
+                <Card key={review.id}>
+                  <CardContent className="pt-6 space-y-3">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-sm">
+                          {review.authorName ?? "Anónimo"}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {new Date(review.createdAt).toLocaleDateString("es-AR", {
+                            day: "numeric",
+                            month: "long",
+                            year: "numeric",
+                          })}
+                        </span>
+                      </div>
+                      <StarRating rating={review.rating} />
+                    </div>
+                    <p className="text-sm text-muted-foreground leading-relaxed">
+                      {review.content}
+                    </p>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
+        </>
       )}
     </div>
   )

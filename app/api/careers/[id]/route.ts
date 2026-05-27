@@ -31,6 +31,8 @@ export async function GET(
           foundedYear: true,
           description: true,
           logoUrl: true,
+          reviews: { select: { rating: true } },
+          _count: { select: { careers: true } },
         },
       },
 
@@ -62,31 +64,37 @@ export async function GET(
     },
   });
 
-  // Si el id no existe en la BD, responde 404 para que el frontend muestre "no encontrada".
   if (!career) {
     return NextResponse.json({ error: "Carrera no encontrada" }, { status: 404 });
   }
 
-  // Métrica derivada para la UI:
-  // - Si hay reseñas, calcula promedio de rating
-  // - Redondea a 1 decimal (ej: 4.46 -> 4.5)
-  // - Si no hay reseñas, queda null para mostrar "Sin reseñas"
+  const { university, reviews: careerReviews, ...careerRest } = career;
+  const { reviews: uniReviews, _count, ...universityRest } = university;
+
   const rating =
-    career.reviews.length > 0
+    careerReviews.length > 0
       ? Math.round(
-          (career.reviews.reduce((sum, review) => sum + review.rating, 0) /
-            career.reviews.length) *
-            10
+          (careerReviews.reduce((sum, r) => sum + r.rating, 0) / careerReviews.length) * 10
         ) / 10
       : null;
 
-  // Respuesta JSON final:
-  // - `...career`: datos crudos traídos de Prisma (incluye relaciones)
-  // - `rating`: promedio calculado
-  // - `reviewCount`: total de reseñas, útil para tabs y labels
+  const universityRating =
+    uniReviews.length > 0
+      ? Math.round(
+          (uniReviews.reduce((s, r) => s + r.rating, 0) / uniReviews.length) * 10
+        ) / 10
+      : null;
+
   return NextResponse.json({
-    ...career,
+    ...careerRest,
     rating,
-    reviewCount: career.reviews.length,
+    reviewCount: careerReviews.length,
+    reviews: careerReviews,
+    university: {
+      ...universityRest,
+      careerCount: _count.careers,
+      rating: universityRating,
+      reviewCount: uniReviews.length,
+    },
   });
 }
