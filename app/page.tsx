@@ -103,7 +103,7 @@ export default function Home() {
                 },
                 {
                   title: "Administración de Empresas",
-                  university: "EADE - Buenos Aires",
+                  university: "UADE - Buenos Aires",
                   students: 1920,
                   rating: 4.7,
                 },
@@ -117,8 +117,8 @@ export default function Home() {
                   <CardContent>
                     <div className="space-y-3">
                       <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">Estudiantes inscritos</span>
-                        <span className="font-semibold">{career.students.toLocaleString()}</span>
+                        <span className="text-muted-foreground">Estudiantes inscriptos</span>
+                        <span className="font-semibold">{career.students.toLocaleString('es-AR')}</span>
                       </div>
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-muted-foreground">Calificación</span>
@@ -128,7 +128,7 @@ export default function Home() {
                       </div>
                       <Button className="w-full mt-4" variant="outline">
                         Ver detalles <ArrowRight className="h-4 w-4 ml-2" />
-                      </Button>
+                      </Button> 
                     </div>
                   </CardContent>
                 </Card>
