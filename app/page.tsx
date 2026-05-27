@@ -1,211 +1,164 @@
-"use client"
-
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { TrendingUp, Users, BookOpen, Award, ArrowRight } from "lucide-react"
+import { Separator } from "@/components/ui/separator"
+import {
+  GraduationCap,
+  Compass,
+  BarChart3,
+  BookOpen,
+  Users,
+  ArrowRight,
+  Search,
+  CheckCircle2,
+} from "lucide-react"
 import Link from "next/link"
+
+const features = [
+  {
+    icon: Compass,
+    title: "Explorar carreras",
+    description:
+      "Buscá entre cientos de carreras universitarias de todo el país. Filtrá por área, duración, modalidad y más.",
+    href: "/carreras",
+    badge: "Principal",
+  },
+  {
+    icon: BarChart3,
+    title: "Comparar carreras",
+    description:
+      "Poné dos o más carreras una al lado de la otra y analizá sus diferencias: duración, universidades disponibles, perfil del egresado y campo laboral.",
+    href: "/comparar",
+    badge: null,
+  },
+  {
+    icon: GraduationCap,
+    title: "Universidades",
+    description:
+      "Explorá las instituciones disponibles, tanto públicas como privadas, y conocé qué carreras ofrece cada una.",
+    href: "/universidades",
+    badge: null,
+  },
+  {
+    icon: BookOpen,
+    title: "Mis carreras",
+    description:
+      "Guardá las carreras que más te interesan para volver a verlas cuando quieras y organizarlas a tu manera.",
+    href: "/mis-carreras",
+    badge: null,
+  },
+  {
+    icon: Users,
+    title: "Comunidad",
+    description:
+      "Leé experiencias de estudiantes y egresados, hacé preguntas y compartí tu opinión sobre las carreras.",
+    href: "/comunidad",
+    badge: null,
+  },
+]
+
+const steps = [
+  { label: "Explorá las carreras disponibles por área o nombre" },
+  { label: "Comparalas para encontrar la que mejor se adapta a vos" },
+  { label: "Guardá las que más te gusten en tu lista personal" },
+]
 
 export default function Home() {
   return (
-    <div className="flex-1 space-y-8 p-6 lg:p-8">
-      {/* Hero Section */}
-      <section className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Bienvenido de vuelta</h1>
-            <p className="text-muted-foreground mt-2">
-              Descubre y compara las mejores carreras universitarias de Argentina
-            </p>
-          </div>
+    <div className="flex-1 space-y-16 p-6 lg:p-10 max-w-5xl mx-auto w-full">
+
+      {/* Hero */}
+      <section className="space-y-6 pt-4">
+        <div className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm text-muted-foreground">
+          <GraduationCap className="h-4 w-4" />
+          Carreras Finder
         </div>
-      </section>
-
-      {/* Stats Grid */}
-      <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total de Carreras</CardTitle>
-            <BookOpen className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">2,547</div>
-            <p className="text-xs text-muted-foreground">
-              +180 este mes
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Universidades</CardTitle>
-            <Award className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">127</div>
-            <p className="text-xs text-muted-foreground">
-              Instituciones públicas y privadas
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Estudiantes</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">45,231</div>
-            <p className="text-xs text-muted-foreground">
-              +2,102 últimos 30 días
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Comparaciones</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">18,923</div>
-            <p className="text-xs text-muted-foreground">
-              Realizadas este mes
-            </p>
-          </CardContent>
-        </Card>
-      </section>
-
-      {/* Main Content Tabs */}
-      <section>
-        <Tabs defaultValue="recomendadas" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="recomendadas">Recomendadas</TabsTrigger>
-            <TabsTrigger value="populares">Populares</TabsTrigger>
-            <TabsTrigger value="nuevas">Nuevas</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="recomendadas" className="space-y-4 mt-4">
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {[
-                {
-                  title: "Ingeniería en Sistemas",
-                  university: "Universidad Nacional de La Plata",
-                  students: 2541,
-                  rating: 4.8,
-                },
-                {
-                  title: "Medicina",
-                  university: "Universidad de Buenos Aires",
-                  students: 3821,
-                  rating: 4.9,
-                },
-                {
-                  title: "Administración de Empresas",
-                  university: "UADE - Buenos Aires",
-                  students: 1920,
-                  rating: 4.7,
-                },
-              ].map((career, i) => (
-                <Card key={i} className="hover:shadow-lg transition-shadow">
-                  <CardHeader>
-                    <Badge className="w-fit mb-2" variant="outline">Destacada</Badge>
-                    <CardTitle className="text-lg">{career.title}</CardTitle>
-                    <CardDescription>{career.university}</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">Estudiantes inscriptos</span>
-                        <span className="font-semibold">{career.students.toLocaleString('es-AR')}</span>
-                      </div>
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">Calificación</span>
-                        <span className="font-semibold flex items-center gap-1">
-                          ⭐ {career.rating}
-                        </span>
-                      </div>
-                      <Button className="w-full mt-4" variant="outline">
-                        Ver detalles <ArrowRight className="h-4 w-4 ml-2" />
-                      </Button> 
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </TabsContent>
-
-          <TabsContent value="populares" className="space-y-4 mt-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Carreras más buscadas</CardTitle>
-                <CardDescription>Las 10 carreras con más búsquedas este mes</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {[
-                    { name: "Ingeniería en Sistemas", searches: "8,543", growth: "+12%" },
-                    { name: "Medicina", searches: "7,231", growth: "+8%" },
-                    { name: "Enfermería", searches: "6,142", growth: "+15%" },
-                    { name: "Psicología", searches: "5,923", growth: "+5%" },
-                    { name: "Derecho", searches: "5,812", growth: "+3%" },
-                  ].map((item, i) => (
-                    <div key={i} className="flex items-center justify-between py-2 border-b last:border-0">
-                      <span className="font-medium">{item.name}</span>
-                      <div className="flex items-center gap-4">
-                        <span className="text-sm text-muted-foreground">{item.searches}</span>
-                        <span className="text-sm text-green-600 font-semibold">{item.growth}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="nuevas" className="space-y-4 mt-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Carreras recientemente agregadas</CardTitle>
-                <CardDescription>Nuevas opciones disponibles en el catálogo</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {[
-                    { name: "Ingeniería en IA y Machine Learning", date: "Hace 2 días" },
-                    { name: "Técnico en Ciberseguridad", date: "Hace 5 días" },
-                    { name: "Carrera en Sostenibilidad", date: "Hace 1 semana" },
-                  ].map((item, i) => (
-                    <div key={i} className="flex items-center justify-between py-3 px-4 bg-secondary/50 rounded-lg">
-                      <div>
-                        <p className="font-medium">{item.name}</p>
-                        <p className="text-sm text-muted-foreground">{item.date}</p>
-                      </div>
-                      <Button variant="ghost" size="sm">Ver</Button>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
-      </section>
-
-      {/* CTA Section */}
-      <section className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg p-8 text-white">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-bold mb-2">¿Listo para encontrar tu carrera?</h2>
-            <p className="text-blue-100">Explora más de 2,500 carreras y compara universidades</p>
-          </div>
+        <h1 className="text-4xl font-bold tracking-tight lg:text-5xl">
+          Encontrá la carrera universitaria<br className="hidden md:block" /> que estás buscando
+        </h1>
+        <p className="text-lg text-muted-foreground max-w-2xl">
+          Carreras Finder te ayuda a explorar, comparar y organizar carreras universitarias de Argentina para que puedas tomar una decisión más informada.
+        </p>
+        <div className="flex flex-wrap gap-3">
           <Link href="/carreras">
-            <Button className="bg-white text-blue-600 hover:bg-blue-50">
-              Explorar ahora <ArrowRight className="h-4 w-4 ml-2" />
+            <Button size="lg" className="gap-2">
+              <Search className="h-4 w-4" />
+              Explorar carreras
+            </Button>
+          </Link>
+          <Link href="/comparar">
+            <Button size="lg" variant="outline" className="gap-2">
+              <BarChart3 className="h-4 w-4" />
+              Comparar carreras
             </Button>
           </Link>
         </div>
       </section>
+
+      <Separator />
+
+      {/* Features */}
+      <section className="space-y-6">
+        <div className="space-y-1">
+          <h2 className="text-2xl font-bold tracking-tight">¿Qué podés hacer acá?</h2>
+          <p className="text-muted-foreground">
+            Estas son las herramientas disponibles en el sitio.
+          </p>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {features.map((feature) => (
+            <Link key={feature.href} href={feature.href} className="group block">
+              <Card className="h-full transition-shadow hover:shadow-md">
+                <CardHeader className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                      <feature.icon className="h-5 w-5" />
+                    </div>
+                    {feature.badge && (
+                      <Badge variant="secondary">{feature.badge}</Badge>
+                    )}
+                  </div>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    {feature.title}
+                    <ArrowRight className="h-4 w-4 opacity-0 transition-opacity group-hover:opacity-100" />
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <CardDescription className="text-sm leading-relaxed">
+                    {feature.description}
+                  </CardDescription>
+                </CardContent>
+              </Card>
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      <Separator />
+
+      {/* How it works */}
+      <section className="space-y-6">
+        <div className="space-y-1">
+          <h2 className="text-2xl font-bold tracking-tight">¿Cómo empezar?</h2>
+          <p className="text-muted-foreground">En tres pasos simples.</p>
+        </div>
+
+        <div className="flex flex-col gap-4 sm:flex-row sm:gap-6">
+          {steps.map((step, i) => (
+            <div key={i} className="flex items-start gap-3 flex-1">
+              <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 shrink-0" />
+              <div>
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Paso {i + 1}
+                </span>
+                <p className="mt-0.5 text-sm">{step.label}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
     </div>
   )
 }
