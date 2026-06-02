@@ -500,10 +500,16 @@ const GLOBAL_TOTAL = PHASE1_QUESTIONS.length + 15 + PHASE3_QUESTIONS.length // 2
 
 // ─── Componente principal ─────────────────────────────────────────────────────
 
-export function VocationalTest() {
+export function VocationalTest({
+  skipIntro = false,
+  onClose,
+}: {
+  skipIntro?: boolean
+  onClose?: () => void
+} = {}) {
   const { saveProfile, profile, hydrated } = useVocationalProfile()
 
-  const [step, setStep] = useState(0)
+  const [step, setStep] = useState(skipIntro ? 1 : 0)
   const [phase1Answers, setPhase1Answers] = useState<Record<number, number>>({})
   const [phase2Answers, setPhase2Answers] = useState<Record<string, number>>({})
   const [phase3Answers, setPhase3Answers] = useState<Record<string, string>>({})
@@ -648,7 +654,10 @@ export function VocationalTest() {
   }
 
   // ── Intro ──
-  if (step === 0) return <IntroScreen onStart={() => setStep(1)} />
+  if (step === 0) {
+    if (skipIntro) { onClose?.(); return null }
+    return <IntroScreen onStart={() => setStep(1)} />
+  }
 
   // ── Fase 1 ──
   if (step >= 1 && step <= P1) {
@@ -670,7 +679,9 @@ export function VocationalTest() {
         isLast={false}
         onAnswer={(qi, val) => setPhase1Answers((prev) => ({ ...prev, [start + qi]: val }))}
         onNext={() => (step < P1 ? setStep(step + 1) : advanceToPhase2())}
-        onBack={() => setStep(step - 1)}
+        onBack={() => {
+          if (skipIntro && step === 1) { onClose?.() } else { setStep(step - 1) }
+        }}
       />
     )
   }

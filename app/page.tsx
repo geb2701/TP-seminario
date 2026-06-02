@@ -1,5 +1,4 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import {
@@ -9,11 +8,10 @@ import {
   BookOpen,
   Users,
   ArrowRight,
-  Search,
   CheckCircle2,
 } from "lucide-react"
 import Link from "next/link"
-import { VocationalProfileBanner } from "@/components/vocational-profile-banner"
+import { VocationalTestHomeSection } from "@/components/vocational-test-home-section"
 
 const features = [
   {
@@ -68,34 +66,12 @@ export default function Home() {
   return (
     <div className="flex-1 space-y-16 p-6 lg:p-10 max-w-5xl mx-auto w-full">
 
-      <VocationalProfileBanner />
-
       {/* Hero */}
       <section className="space-y-6 pt-4">
-        <div className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm text-muted-foreground">
-          <GraduationCap className="h-4 w-4" />
-          Carreras Finder
-        </div>
         <h1 className="text-4xl font-bold tracking-tight lg:text-5xl">
           Encontrá la carrera universitaria<br className="hidden md:block" /> que estás buscando
         </h1>
-        <p className="text-lg text-muted-foreground max-w-2xl">
-          Carreras Finder te ayuda a explorar, comparar y organizar carreras universitarias de Argentina para que puedas tomar una decisión más informada.
-        </p>
-        <div className="flex flex-wrap gap-3">
-          <Link href="/carreras">
-            <Button size="lg" className="gap-2">
-              <Search className="h-4 w-4" />
-              Explorar carreras
-            </Button>
-          </Link>
-          <Link href="/comparar">
-            <Button size="lg" variant="outline" className="gap-2">
-              <BarChart3 className="h-4 w-4" />
-              Comparar carreras
-            </Button>
-          </Link>
-        </div>
+        <VocationalTestHomeSection />
       </section>
 
       <Separator />
