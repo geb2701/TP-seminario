@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import {
   Radar,
   RadarChart,
@@ -17,14 +18,18 @@ import { Label } from "@/components/ui/label"
 import {
   ArrowRight,
   ArrowLeft,
+  ArrowLeftRight,
   RotateCcw,
   GraduationCap,
   Trophy,
   Save,
+  Check,
   CheckCircle,
+  ExternalLink,
   Sparkles,
 } from "lucide-react"
 import { useVocationalProfile } from "@/hooks/use-vocational-profile"
+import { cn } from "@/lib/utils"
 import { AREA_COLORS, AREA_EMOJIS } from "./constants"
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
@@ -1049,6 +1054,24 @@ function ResultsScreen({
   personName: string
   onReset: () => void
 }) {
+  const router = useRouter()
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
+
+  function toggleCareer(id: string) {
+    setSelectedIds((prev) => {
+      if (prev.includes(id)) return prev.filter((i) => i !== id)
+      if (prev.length >= 4) return prev
+      return [...prev, id]
+    })
+  }
+
+  function handleCompare() {
+    try {
+      localStorage.setItem("compare-careers", JSON.stringify(selectedIds))
+    } catch {}
+    router.push("/comparar")
+  }
+
   const radarData = sortedPhase1.map(([name, score]) => ({
     area: name.replace("Ciencias ", "Cs. ").replace(" y ", "\ny "),
     score,
@@ -1130,9 +1153,14 @@ function ResultsScreen({
 
       {/* ── Afinidad con carreras ── */}
       <section className="space-y-6">
-        <div className="flex items-center gap-2">
-          <Trophy className="size-5 text-yellow-500" />
-          <h2 className="text-lg font-semibold">Afinidad con carreras</h2>
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Trophy className="size-5 text-yellow-500" />
+            <h2 className="text-lg font-semibold">Afinidad con carreras</h2>
+          </div>
+          <span className="text-xs text-muted-foreground">
+            Seleccioná hasta 4 para comparar
+          </span>
         </div>
 
         {loadingCareers ? (
@@ -1156,17 +1184,30 @@ function ResultsScreen({
                   <div className="space-y-2">
                     {areaCareers.map((career) => {
                       const score = careerScores[normalizeCareerName(career.name)] ?? 0
+                      const isSelected = selectedIds.includes(career.id)
+                      const isDisabled = !isSelected && selectedIds.length >= 4
                       return (
-                        <Link
+                        <div
                           key={career.id}
-                          href={`/carreras/${career.id}`}
-                          className="group flex items-center gap-3 rounded-lg border bg-card px-4 py-2.5 hover:border-primary/40 hover:bg-muted/40 transition-colors"
+                          onClick={() => toggleCareer(career.id)}
+                          className={cn(
+                            "flex items-center gap-3 rounded-lg border bg-card px-4 py-2.5 cursor-pointer transition-colors",
+                            isSelected
+                              ? "border-primary bg-primary/5"
+                              : isDisabled
+                              ? "opacity-50 cursor-not-allowed"
+                              : "hover:border-primary/40 hover:bg-muted/40"
+                          )}
                         >
+                          <div className={cn(
+                            "size-4 rounded border-2 shrink-0 flex items-center justify-center transition-colors",
+                            isSelected ? "border-primary bg-primary" : "border-muted-foreground/40"
+                          )}>
+                            {isSelected && <Check className="size-2.5 text-primary-foreground" />}
+                          </div>
                           <div className="flex-1 space-y-1.5">
                             <div className="flex items-center justify-between gap-2">
-                              <span className="text-sm font-medium group-hover:text-primary transition-colors">
-                                {career.name}
-                              </span>
+                              <span className="text-sm font-medium">{career.name}</span>
                               <span
                                 className="text-sm font-bold tabular-nums shrink-0"
                                 style={{ color: score >= 60 ? areaColor : "hsl(var(--muted-foreground))" }}
@@ -1182,8 +1223,14 @@ function ResultsScreen({
                             </div>
                             <p className="text-xs text-muted-foreground">{career.university.name}</p>
                           </div>
-                          <ArrowRight className="size-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-                        </Link>
+                          <Link
+                            href={`/carreras/${career.id}`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="text-muted-foreground hover:text-primary transition-colors shrink-0 p-1 -mr-1 rounded"
+                          >
+                            <ExternalLink className="size-3.5" />
+                          </Link>
+                        </div>
                       )
                     })}
                   </div>
@@ -1278,17 +1325,30 @@ function ResultsScreen({
                 {recommended.map((career) => {
                   const score = careerScores[normalizeCareerName(career.name)] ?? 0
                   const color = AREA_COLORS[career.area.name] ?? "hsl(var(--primary))"
+                  const isSelected = selectedIds.includes(career.id)
+                  const isDisabled = !isSelected && selectedIds.length >= 4
                   return (
-                    <Link
+                    <div
                       key={career.id}
-                      href={`/carreras/${career.id}`}
-                      className="group flex items-center gap-3 rounded-lg border bg-background px-4 py-3 hover:border-primary/40 hover:bg-muted/40 transition-colors"
+                      onClick={() => toggleCareer(career.id)}
+                      className={cn(
+                        "flex items-center gap-3 rounded-lg border bg-background px-4 py-3 cursor-pointer transition-colors",
+                        isSelected
+                          ? "border-primary bg-primary/5"
+                          : isDisabled
+                          ? "opacity-50 cursor-not-allowed"
+                          : "hover:border-primary/40 hover:bg-muted/40"
+                      )}
                     >
+                      <div className={cn(
+                        "size-4 rounded border-2 shrink-0 flex items-center justify-center transition-colors",
+                        isSelected ? "border-primary bg-primary" : "border-muted-foreground/40"
+                      )}>
+                        {isSelected && <Check className="size-2.5 text-primary-foreground" />}
+                      </div>
                       <div className="flex-1 space-y-1">
                         <div className="flex items-center justify-between gap-2">
-                          <span className="text-sm font-medium group-hover:text-primary transition-colors">
-                            {career.name}
-                          </span>
+                          <span className="text-sm font-medium">{career.name}</span>
                           <div className="flex items-center gap-2 shrink-0">
                             <span className="text-[10px] text-muted-foreground">
                               {AREA_EMOJIS[career.area.name]} {career.area.name}
@@ -1305,8 +1365,14 @@ function ResultsScreen({
                           {career.university.name} · {MODALITY_LABEL[career.modality]} · {career.durationYears} años
                         </p>
                       </div>
-                      <ArrowRight className="size-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-                    </Link>
+                      <Link
+                        href={`/carreras/${career.id}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="text-muted-foreground hover:text-primary transition-colors shrink-0 p-1 -mr-1 rounded"
+                      >
+                        <ExternalLink className="size-3.5" />
+                      </Link>
+                    </div>
                   )
                 })}
               </div>
@@ -1321,6 +1387,19 @@ function ResultsScreen({
           <RotateCcw className="size-4" />
           Hacer el test de nuevo
         </Button>
+        {careers.length > 0 && (
+          <Button
+            variant="secondary"
+            onClick={handleCompare}
+            disabled={selectedIds.length === 0}
+            className="gap-2"
+          >
+            <ArrowLeftRight className="size-4" />
+            {selectedIds.length > 0
+              ? `Comparar resultados (${selectedIds.length}/4)`
+              : "Comparar resultados"}
+          </Button>
+        )}
         <Link
           href="/carreras"
           className={buttonVariants({ variant: "default", className: "gap-2" })}
