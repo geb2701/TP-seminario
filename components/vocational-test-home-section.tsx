@@ -26,7 +26,9 @@ export function VocationalTestHomeSection() {
         </button>
         {quizMode === "view"
           ? <VocationalTest onClose={() => setQuizMode(null)} />
-          : <VocationalTest skipIntro onClose={() => setQuizMode(null)} />
+          : profile
+            ? <VocationalTest forceIntro onClose={() => setQuizMode(null)} />
+            : <VocationalTest skipIntro onClose={() => setQuizMode(null)} />
         }
       </div>
     )

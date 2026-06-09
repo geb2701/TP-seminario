@@ -23,8 +23,10 @@ import {
   Save,
   CheckCircle,
   Sparkles,
+  Scale,
 } from "lucide-react"
 import { useVocationalProfile } from "@/hooks/use-vocational-profile"
+import { useCompareCareers, MAX_COMPARE } from "@/hooks/use-compare-careers"
 import { AREA_COLORS, AREA_EMOJIS } from "./constants"
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
@@ -502,9 +504,11 @@ const GLOBAL_TOTAL = PHASE1_QUESTIONS.length + 15 + PHASE3_QUESTIONS.length // 2
 
 export function VocationalTest({
   skipIntro = false,
+  forceIntro = false,
   onClose,
 }: {
   skipIntro?: boolean
+  forceIntro?: boolean
   onClose?: () => void
 } = {}) {
   const { saveProfile, profile, hydrated } = useVocationalProfile()
@@ -568,8 +572,9 @@ export function VocationalTest({
           if (!seen.has(c.id)) { seen.add(c.id); merged.push(c) }
         }
       }
-      merged.sort((a, b) => (top3.indexOf(a.area.name) - top3.indexOf(b.area.name)))
-      setCareers(merged.slice(0, 6))
+      const cs = calcCareerScores(savedPhase2, top3)
+      merged.sort((a, b) => (cs[normalizeCareerName(b.name)] ?? 0) - (cs[normalizeCareerName(a.name)] ?? 0))
+      setCareers(merged)
     } catch {
       // silently ignore
     } finally {
@@ -613,7 +618,7 @@ export function VocationalTest({
       }
 
       merged.sort((a, b) => (computed[normalizeCareerName(b.name)] ?? 0) - (computed[normalizeCareerName(a.name)] ?? 0))
-      setCareers(merged.slice(0, 6))
+      setCareers(merged)
     } catch {
       // silently ignore
     } finally {
@@ -636,16 +641,69 @@ export function VocationalTest({
     setSaved(false)
   }
 
+  async function fillRandomAndSave() {
+    const p1: Record<number, number> = {}
+    PHASE1_QUESTIONS.forEach((_, i) => { p1[i] = Math.floor(Math.random() * 5) })
+
+    const scores = calcPhase1Scores(p1)
+    const sorted = Object.entries(scores).sort((a, b) => b[1] - a[1])
+    const top3 = sorted.slice(0, 3).map(([name]) => name)
+
+    const p2: Record<string, number> = {}
+    top3.forEach((area, ai) => {
+      ;(AREA_CAREER_QUESTIONS[area] ?? []).forEach((_, qi) => {
+        p2[`${ai}_${qi}`] = Math.floor(Math.random() * 5)
+      })
+    })
+
+    const p3: Record<string, string> = {}
+    PHASE3_QUESTIONS.forEach(q => {
+      p3[q.id] = q.options[Math.floor(Math.random() * q.options.length)].value
+    })
+
+    const computed = calcCareerScores(p2, top3)
+    const topArea = sorted[0]?.[0] ?? ""
+
+    setPhase1Answers(p1)
+    setPhase2Answers(p2)
+    setPhase3Answers(p3)
+    setTop3Areas(top3)
+    setCareerScores(computed)
+    setSavedScores(sorted)
+    setPersonName("Dev")
+    saveProfile({ scores, topArea, personName: "Dev", phase2Answers: p2, phase3Answers: p3 })
+    setSaved(true)
+    setStep(RESULT_STEP)
+
+    setLoadingCareers(true)
+    const top3Ids = top3.map(name => areas.find(a => a.name === name)?.id).filter(Boolean) as string[]
+    try {
+      const results = await Promise.all(
+        top3Ids.map(id => fetch(`/api/careers?areaId=${id}`).then(r => r.json() as Promise<CareerResult[]>))
+      )
+      const merged: CareerResult[] = []
+      const seen = new Set<string>()
+      for (const list of results) {
+        for (const c of list) {
+          if (!seen.has(c.id)) { seen.add(c.id); merged.push(c) }
+        }
+      }
+      merged.sort((a, b) => (computed[normalizeCareerName(b.name)] ?? 0) - (computed[normalizeCareerName(a.name)] ?? 0))
+      setCareers(merged)
+    } catch {}
+    finally { setLoadingCareers(false) }
+  }
+
   // Auto-carga resultados guardados en cuanto están disponibles los datos de áreas
   useEffect(() => {
-    if (hydrated && profile && areas.length > 0 && step === 0) {
+    if (!forceIntro && hydrated && profile && areas.length > 0 && step === 0) {
       viewSavedResults()
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hydrated, profile, areas.length])
 
   // ── Cargando (esperando hidratación o áreas cuando hay perfil guardado) ──
-  if (!hydrated || (profile && areas.length === 0 && step === 0)) {
+  if (!hydrated || (!forceIntro && profile && areas.length === 0 && step === 0)) {
     return (
       <div className="flex items-center justify-center min-h-[80vh]">
         <div className="size-6 rounded-full border-2 border-primary border-t-transparent animate-spin" />
@@ -656,7 +714,21 @@ export function VocationalTest({
   // ── Intro ──
   if (step === 0) {
     if (skipIntro) { onClose?.(); return null }
-    return <IntroScreen onStart={() => setStep(1)} />
+    return (
+      <>
+        <IntroScreen onStart={() => setStep(1)} />
+        {process.env.NODE_ENV === "development" && (forceIntro || !onClose) && (
+          <div className="fixed bottom-4 right-4 z-50">
+            <button
+              onClick={fillRandomAndSave}
+              className="cursor-pointer rounded-lg bg-yellow-400 px-3 py-2 text-xs font-semibold text-yellow-900 shadow-lg hover:bg-yellow-300 transition-colors"
+            >
+              🎲 Rellenar aleatorio
+            </button>
+          </div>
+        )}
+      </>
+    )
   }
 
   // ── Fase 1 ──
@@ -1060,24 +1132,48 @@ function ResultsScreen({
   personName: string
   onReset: () => void
 }) {
+  const [selectedAreas, setSelectedAreas] = useState<Set<string>>(new Set())
+  const [comparatorLoaded, setComparatorLoaded] = useState(false)
+  const { set: setCompareIds } = useCompareCareers()
+
   const radarData = sortedPhase1.map(([name, score]) => ({
     area: name.replace("Ciencias ", "Cs. ").replace(" y ", "\ny "),
     score,
   }))
 
-  // Agrupar carreras por área (en orden de top3)
-  const careersByArea: Record<string, CareerResult[]> = {}
-  for (const c of careers) {
-    if (!careersByArea[c.area.name]) careersByArea[c.area.name] = []
-    careersByArea[c.area.name].push(c)
-  }
-  for (const area of top3Areas) {
-    careersByArea[area]?.sort((a, b) => (careerScores[normalizeCareerName(b.name)] ?? 0) - (careerScores[normalizeCareerName(a.name)] ?? 0))
-  }
-
   const medals = ["🥇", "🥈", "🥉"]
 
-  // Preferencias seleccionadas para mostrar como chips informativos
+  // Ranked career list: all scored careers sorted by Phase 2 affinity desc
+  const scoredCareers = careers
+    .map(c => ({ ...c, affinity: careerScores[normalizeCareerName(c.name)] ?? 0 }))
+    .sort((a, b) => b.affinity - a.affinity)
+
+  const filteredByView = selectedAreas.size === 0
+    ? scoredCareers
+    : scoredCareers.filter(c => selectedAreas.has(c.area.name))
+
+  const topN = filteredByView.slice(0, MAX_COMPARE)
+
+  function loadIntoComparator() {
+    setCompareIds(topN.map(c => c.id))
+    setComparatorLoaded(true)
+  }
+
+  function toggleArea(area: string) {
+    setSelectedAreas(prev => {
+      const next = new Set(prev)
+      next.has(area) ? next.delete(area) : next.add(area)
+      return next
+    })
+    setComparatorLoaded(false)
+  }
+
+  function clearAreas() {
+    setSelectedAreas(new Set())
+    setComparatorLoaded(false)
+  }
+
+  // Phase 3 preference filters
   const modalityPref = phase3Answers["modality"]
   const typePref     = phase3Answers["type"]
   const durationPref = phase3Answers["duration"]
@@ -1138,107 +1234,124 @@ function ResultsScreen({
         </div>
       </section>
 
-
-      {/* ── Afinidad con carreras ── */}
-      <section className="space-y-6">
+      {/* ── Carreras más compatibles: ranked list + toggle + comparador ── */}
+      <section className="space-y-4">
         <div className="flex items-center gap-2">
           <Trophy className="size-5 text-yellow-500" />
-          <h2 className="text-lg font-semibold">Afinidad con carreras</h2>
+          <h2 className="text-lg font-semibold">Carreras más compatibles</h2>
+        </div>
+
+        {/* Area filter chips */}
+        <div className="flex flex-wrap gap-2 text-sm">
+          <button
+            onClick={clearAreas}
+            className={`cursor-pointer rounded-full px-3 py-1.5 font-medium border transition-colors ${
+              selectedAreas.size === 0
+                ? "bg-primary text-primary-foreground border-primary"
+                : "bg-muted/50 text-muted-foreground border-border hover:border-primary/40"
+            }`}
+          >
+            Todas las áreas
+          </button>
+          {top3Areas.map(area => {
+            const active = selectedAreas.has(area)
+            const color = AREA_COLORS[area] ?? "hsl(var(--primary))"
+            return (
+              <button
+                key={area}
+                onClick={() => toggleArea(area)}
+                className={`cursor-pointer rounded-full px-3 py-1.5 font-medium border transition-colors ${
+                  active
+                    ? "text-foreground"
+                    : "bg-muted/50 text-muted-foreground border-border hover:border-primary/40"
+                }`}
+                style={active ? { borderColor: color, backgroundColor: `${color}18` } : undefined}
+              >
+                {AREA_EMOJIS[area]} {area}
+              </button>
+            )
+          })}
         </div>
 
         {loadingCareers ? (
-          <div className="space-y-4">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="h-28 rounded-xl bg-muted animate-pulse" />
+          <div className="space-y-2">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="h-16 rounded-lg bg-muted animate-pulse" />
             ))}
           </div>
+        ) : filteredByView.length === 0 ? (
+          <p className="text-sm text-muted-foreground py-4">
+            No hay carreras disponibles para esta selección.
+          </p>
         ) : (
-          <div className="space-y-6">
-            {top3Areas.map((areaName) => {
-              const areaColor = AREA_COLORS[areaName] ?? "hsl(var(--primary))"
-              const areaCareers = careersByArea[areaName] ?? []
-              if (areaCareers.length === 0) return null
-
+          <div className="space-y-2">
+            {filteredByView.map((career, i) => {
+              const color = AREA_COLORS[career.area.name] ?? "hsl(var(--primary))"
+              const isTopN = i < MAX_COMPARE
               return (
-                <div key={areaName} className="space-y-3">
-                  <p className="text-sm font-semibold text-muted-foreground">
-                    {AREA_EMOJIS[areaName]} {areaName}
-                  </p>
-                  <div className="space-y-2">
-                    {areaCareers.map((career) => {
-                      const score = careerScores[normalizeCareerName(career.name)] ?? 0
-                      return (
-                        <Link
-                          key={career.id}
-                          href={`/carreras/${career.id}`}
-                          className="group flex items-center gap-3 rounded-lg border bg-card px-4 py-2.5 hover:border-primary/40 hover:bg-muted/40 transition-colors"
+                <div key={career.id} className="flex items-center gap-2">
+                  <span className={`text-sm tabular-nums w-5 text-right shrink-0 ${isTopN ? "font-bold" : "text-muted-foreground"}`}>
+                    {i + 1}.
+                  </span>
+                  <Link
+                    href={`/carreras/${career.id}`}
+                    className={`group flex-1 flex items-center gap-3 rounded-lg border bg-card px-4 py-2.5 hover:border-primary/40 hover:bg-muted/40 transition-colors ${isTopN ? "border-primary/20" : ""}`}
+                  >
+                    <div className="flex-1 space-y-1.5 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-sm font-medium group-hover:text-primary transition-colors truncate">
+                          {career.name}
+                        </span>
+                        <span
+                          className="text-sm font-bold tabular-nums shrink-0"
+                          style={{ color: career.affinity >= 60 ? color : "hsl(var(--muted-foreground))" }}
                         >
-                          <div className="flex-1 space-y-1.5">
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="text-sm font-medium group-hover:text-primary transition-colors">
-                                {career.name}
-                              </span>
-                              <span
-                                className="text-sm font-bold tabular-nums shrink-0"
-                                style={{ color: score >= 60 ? areaColor : "hsl(var(--muted-foreground))" }}
-                              >
-                                {score > 0 ? `${score}%` : "—"}
-                              </span>
-                            </div>
-                            <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                              <div
-                                className="h-full rounded-full transition-all duration-700"
-                                style={{ width: `${score}%`, backgroundColor: areaColor }}
-                              />
-                            </div>
-                            <p className="text-xs text-muted-foreground">{career.university.name}</p>
-                          </div>
-                          <ArrowRight className="size-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-                        </Link>
-                      )
-                    })}
-                  </div>
+                          {career.affinity > 0 ? `${career.affinity}%` : "—"}
+                        </span>
+                      </div>
+                      <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all duration-700"
+                          style={{ width: `${career.affinity}%`, backgroundColor: color }}
+                        />
+                      </div>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {career.university.name} · {AREA_EMOJIS[career.area.name]} {career.area.name}
+                      </p>
+                    </div>
+                    <ArrowRight className="size-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                  </Link>
                 </div>
               )
             })}
           </div>
         )}
-      </section>
 
-      {/* ── Perfil completo (radar) ── */}
-      <section className="space-y-4">
-        <h2 className="text-base font-semibold text-muted-foreground">Perfil completo de intereses</h2>
-        <Card>
-          <CardContent className="pt-4">
-            <ResponsiveContainer width="100%" height={300}>
-              <RadarChart data={radarData}>
-                <PolarGrid />
-                <PolarAngleAxis
-                  dataKey="area"
-                  tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
-                />
-                <Radar
-                  name="Puntaje"
-                  dataKey="score"
-                  stroke="hsl(var(--primary))"
-                  fill="hsl(var(--primary))"
-                  fillOpacity={0.2}
-                  strokeWidth={2}
-                />
-                <Tooltip
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  formatter={(value: any) => [`${value}%`, "Afinidad"]}
-                  contentStyle={{
-                    background: "hsl(var(--card))",
-                    border: "1px solid hsl(var(--border))",
-                    borderRadius: "8px",
-                    fontSize: "12px",
-                  }}
-                />
-              </RadarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
+        {/* Comparador CTA */}
+        {!loadingCareers && topN.length > 0 && (
+          <div className="flex flex-wrap items-center gap-3 pt-3 border-t">
+            {comparatorLoaded ? (
+              <>
+                <div className="flex items-center gap-1.5 text-sm text-emerald-600 dark:text-emerald-400">
+                  <CheckCircle className="size-4" />
+                  <span>Top {topN.length} cargadas en el comparador</span>
+                </div>
+                <Link
+                  href="/comparar"
+                  className={buttonVariants({ variant: "default", className: "gap-2 ml-auto" })}
+                >
+                  Ver comparación
+                  <ArrowRight className="size-4" />
+                </Link>
+              </>
+            ) : (
+              <Button onClick={loadIntoComparator} className="gap-2">
+                <Scale className="size-4" />
+                Cargar top {topN.length} en comparador
+              </Button>
+            )}
+          </div>
+        )}
       </section>
 
       {/* ── Recomendadas según preferencias prácticas ── */}
@@ -1325,6 +1438,42 @@ function ResultsScreen({
           </section>
         )
       })()}
+
+      {/* ── Perfil completo (radar) ── */}
+      <section className="space-y-4">
+        <h2 className="text-base font-semibold text-muted-foreground">Perfil completo de intereses</h2>
+        <Card>
+          <CardContent className="pt-4">
+            <ResponsiveContainer width="100%" height={300}>
+              <RadarChart data={radarData}>
+                <PolarGrid />
+                <PolarAngleAxis
+                  dataKey="area"
+                  tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+                />
+                <Radar
+                  name="Puntaje"
+                  dataKey="score"
+                  stroke="#3b82f6"
+                  fill="#3b82f6"
+                  fillOpacity={0.35}
+                  strokeWidth={2}
+                />
+                <Tooltip
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  formatter={(value: any) => [`${value}%`, "Afinidad"]}
+                  contentStyle={{
+                    background: "hsl(var(--card))",
+                    border: "1px solid hsl(var(--border))",
+                    borderRadius: "8px",
+                    fontSize: "12px",
+                  }}
+                />
+              </RadarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      </section>
 
       {/* ── Acciones ── */}
       <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">

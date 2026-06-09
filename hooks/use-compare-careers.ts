@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 
 const STORAGE_KEY = "compare-careers"
-const MAX_COMPARE = 4
+export const MAX_COMPARE = 4
 
 export function useCompareCareers() {
   const [ids, setIds] = useState<string[]>([])
@@ -31,5 +31,6 @@ export function useCompareCareers() {
     },
     remove: (id: string) => sync(ids.filter((i) => i !== id)),
     clear: () => sync([]),
+    set: (newIds: string[]) => sync(newIds.slice(0, MAX_COMPARE)),
   }
 }
