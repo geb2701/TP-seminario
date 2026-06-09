@@ -1,7 +1,9 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef, useMemo } from "react"
 import Link from "next/link"
+import { useQuery } from "@tanstack/react-query"
+import { api } from "@/lib/api"
 import {
   Radar,
   RadarChart,
@@ -23,11 +25,14 @@ import {
   Save,
   CheckCircle,
   Sparkles,
-  Scale,
 } from "lucide-react"
 import { useVocationalProfile } from "@/hooks/use-vocational-profile"
 import { useCompareCareers, MAX_COMPARE } from "@/hooks/use-compare-careers"
 import { AREA_COLORS, AREA_EMOJIS } from "./constants"
+import { ComparisonPanel, type CompareCareer } from "./ComparisonPanel"
+import { CareerDetailPanel, type CareerDetailFull } from "./CareerDetailPanel"
+import { EmptyState } from "@/components/empty-state"
+import { Search } from "lucide-react"
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
 
@@ -1103,6 +1108,85 @@ function SaveScreen({
   )
 }
 
+// ─── Carousel ─────────────────────────────────────────────────────────────────
+
+function ResultsCarousel({
+  slide1,
+  slide2,
+  slide2Label,
+  activeSlide,
+  onSlideChange,
+  navContainerClass = "",
+}: {
+  slide1: React.ReactNode
+  slide2: React.ReactNode
+  slide2Label: string
+  activeSlide: number
+  onSlideChange: (n: number) => void
+  navContainerClass?: string
+}) {
+  const trackRef = useRef<HTMLDivElement>(null)
+
+  function goTo(n: number) {
+    const el = trackRef.current
+    if (!el) return
+    el.scrollTo({ left: n * el.clientWidth, behavior: "smooth" })
+  }
+
+  function handleScroll() {
+    const el = trackRef.current
+    if (!el) return
+    onSlideChange(Math.round(el.scrollLeft / el.clientWidth))
+  }
+
+  return (
+    <div className="space-y-3">
+      {/* Navigation bar — optionally constrained to match slide 1 width */}
+      <div className={navContainerClass}>
+        <div className="flex items-center justify-between px-1">
+          <button
+            onClick={() => goTo(0)}
+            disabled={activeSlide === 0}
+            className="cursor-pointer inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground disabled:opacity-30 disabled:cursor-default hover:text-foreground transition-colors"
+          >
+            <ArrowLeft className="size-4" />
+            Resultados
+          </button>
+          <div className="flex gap-2">
+            {[0, 1].map((i) => (
+              <button
+                key={i}
+                onClick={() => goTo(i)}
+                className={`cursor-pointer size-2 rounded-full transition-colors ${
+                  activeSlide === i ? "bg-primary" : "bg-muted hover:bg-muted-foreground/40"
+                }`}
+              />
+            ))}
+          </div>
+          <button
+            onClick={() => goTo(1)}
+            disabled={activeSlide === 1}
+            className="cursor-pointer inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground disabled:opacity-30 disabled:cursor-default hover:text-foreground transition-colors"
+          >
+            {slide2Label}
+            <ArrowRight className="size-4" />
+          </button>
+        </div>
+      </div>
+
+      {/* Scrollable track */}
+      <div
+        ref={trackRef}
+        onScroll={handleScroll}
+        className="flex overflow-x-scroll snap-x snap-mandatory scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      >
+        <div className="min-w-full shrink-0 snap-start">{slide1}</div>
+        <div className="min-w-full shrink-0 snap-start">{slide2}</div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Resultados ───────────────────────────────────────────────────────────────
 
 const MODALITY_LABEL: Record<string, string> = {
@@ -1133,7 +1217,7 @@ function ResultsScreen({
   onReset: () => void
 }) {
   const [selectedAreas, setSelectedAreas] = useState<Set<string>>(new Set())
-  const [comparatorLoaded, setComparatorLoaded] = useState(false)
+  const [activeSlide, setActiveSlide] = useState(0)
   const { set: setCompareIds } = useCompareCareers()
 
   const radarData = sortedPhase1.map(([name, score]) => ({
@@ -1143,21 +1227,49 @@ function ResultsScreen({
 
   const medals = ["🥇", "🥈", "🥉"]
 
-  // Ranked career list: all scored careers sorted by Phase 2 affinity desc
-  const scoredCareers = careers
-    .map(c => ({ ...c, affinity: careerScores[normalizeCareerName(c.name)] ?? 0 }))
-    .sort((a, b) => b.affinity - a.affinity)
+  // Memoize derived arrays so their references are stable across re-renders.
+  // Without this, .map().sort() creates new objects every render, which causes
+  // the useEffect below to see a changed dependency on every render and loop.
+  const scoredCareers = useMemo(() =>
+    careers
+      .map(c => ({ ...c, affinity: careerScores[normalizeCareerName(c.name)] ?? 0 }))
+      .sort((a, b) => b.affinity - a.affinity),
+    [careers, careerScores]
+  )
 
-  const filteredByView = selectedAreas.size === 0
-    ? scoredCareers
-    : scoredCareers.filter(c => selectedAreas.has(c.area.name))
+  const filteredByView = useMemo(() =>
+    selectedAreas.size === 0
+      ? scoredCareers
+      : scoredCareers.filter(c => selectedAreas.has(c.area.name)),
+    [scoredCareers, selectedAreas]
+  )
 
-  const topN = filteredByView.slice(0, MAX_COMPARE)
+  const topN = useMemo(() => filteredByView.slice(0, MAX_COMPARE), [filteredByView])
+  const comparisonIds = useMemo(() => topN.map(c => c.id), [topN])
+  const isSingle = comparisonIds.length === 1
 
-  function loadIntoComparator() {
-    setCompareIds(topN.map(c => c.id))
-    setComparatorLoaded(true)
-  }
+  // Auto-sync topN into comparator (localStorage) whenever the IDs actually change
+  useEffect(() => {
+    if (comparisonIds.length > 0) setCompareIds(comparisonIds)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [comparisonIds])
+
+  // Slide 2 data: comparison (N ≥ 2) or single career detail (N = 1)
+  const { data: comparisonData, isLoading: comparisonLoading } = useQuery<CompareCareer[]>({
+    queryKey: ["results-comparison", comparisonIds],
+    queryFn: () => api.get(`careers/compare?ids=${comparisonIds.join(",")}`).json<CompareCareer[]>(),
+    enabled: comparisonIds.length >= 2,
+    staleTime: 5 * 60 * 1000,
+  })
+
+  const { data: singleData, isLoading: singleLoading } = useQuery<CareerDetailFull>({
+    queryKey: ["results-single", comparisonIds[0]],
+    queryFn: () => api.get(`careers/${comparisonIds[0]}`).json<CareerDetailFull>(),
+    enabled: isSingle,
+    staleTime: 5 * 60 * 1000,
+  })
+
+  const slide2Label = isSingle ? "Carrera" : "Comparar"
 
   function toggleArea(area: string) {
     setSelectedAreas(prev => {
@@ -1165,12 +1277,10 @@ function ResultsScreen({
       next.has(area) ? next.delete(area) : next.add(area)
       return next
     })
-    setComparatorLoaded(false)
   }
 
   function clearAreas() {
     setSelectedAreas(new Set())
-    setComparatorLoaded(false)
   }
 
   // Phase 3 preference filters
@@ -1178,11 +1288,17 @@ function ResultsScreen({
   const typePref     = phase3Answers["type"]
   const durationPref = phase3Answers["duration"]
 
+  const slide2Content = comparisonIds.length === 0
+    ? <EmptyState icon={Search} title="Sin carreras para comparar" description="Ajustá los filtros de área para ver resultados." />
+    : isSingle
+      ? <CareerDetailPanel data={singleData} isLoading={singleLoading} careerScores={careerScores} />
+      : <ComparisonPanel data={comparisonData} isLoading={comparisonLoading} careerScores={careerScores} selectedIds={comparisonIds} />
+
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8 space-y-10">
+    <div className="py-8 space-y-6">
 
       {/* ── Encabezado ── */}
-      <div className="text-center space-y-2">
+      <div className="max-w-4xl mx-auto px-4 text-center space-y-2">
         <div className="text-5xl">🎯</div>
         <h1 className="text-2xl font-bold">
           {personName ? `Resultados de ${personName}` : "Tus resultados"}
@@ -1194,6 +1310,14 @@ function ResultsScreen({
           </div>
         )}
       </div>
+
+      <ResultsCarousel
+        slide2={slide2Content}
+        slide2Label={slide2Label}
+        activeSlide={activeSlide}
+        onSlideChange={setActiveSlide}
+        navContainerClass="max-w-4xl mx-auto px-4"
+        slide1={<div className="max-w-4xl mx-auto px-4 space-y-10">
 
       {/* ── Top 3 áreas ── */}
       <section className="space-y-4">
@@ -1327,31 +1451,6 @@ function ResultsScreen({
           </div>
         )}
 
-        {/* Comparador CTA */}
-        {!loadingCareers && topN.length > 0 && (
-          <div className="flex flex-wrap items-center gap-3 pt-3 border-t">
-            {comparatorLoaded ? (
-              <>
-                <div className="flex items-center gap-1.5 text-sm text-emerald-600 dark:text-emerald-400">
-                  <CheckCircle className="size-4" />
-                  <span>Top {topN.length} cargadas en el comparador</span>
-                </div>
-                <Link
-                  href="/comparar"
-                  className={buttonVariants({ variant: "default", className: "gap-2 ml-auto" })}
-                >
-                  Ver comparación
-                  <ArrowRight className="size-4" />
-                </Link>
-              </>
-            ) : (
-              <Button onClick={loadIntoComparator} className="gap-2">
-                <Scale className="size-4" />
-                Cargar top {topN.length} en comparador
-              </Button>
-            )}
-          </div>
-        )}
       </section>
 
       {/* ── Recomendadas según preferencias prácticas ── */}
@@ -1489,6 +1588,8 @@ function ResultsScreen({
           Explorar todas las carreras
         </Link>
       </div>
+        </div>}
+      />
     </div>
   )
 }
