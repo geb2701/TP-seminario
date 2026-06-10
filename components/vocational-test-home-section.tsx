@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { ArrowLeft, ArrowRight, RotateCcw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { VocationalTest, generateRandomProfile } from "@/app/orientacion/VocationalTest"
@@ -11,10 +11,19 @@ type QuizMode = "view" | "retake"
 
 const medals = ["🥇", "🥈", "🥉"]
 
-export function VocationalTestHomeSection() {
+export function VocationalTestHomeSection({
+  onResultsViewChange,
+}: {
+  onResultsViewChange?: (isResultsView: boolean) => void
+} = {}) {
   const [quizMode, setQuizMode] = useState<QuizMode | null>(null)
   const [isResultsView, setIsResultsView] = useState(false)
   const { profile, hydrated, saveProfile } = useVocationalProfile()
+
+  useEffect(() => {
+    onResultsViewChange?.(isResultsView)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isResultsView])
 
   if (quizMode !== null) {
     return (
