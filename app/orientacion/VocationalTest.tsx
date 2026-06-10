@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef, useMemo } from "react"
+import { useState, useEffect, useLayoutEffect, useRef, useMemo } from "react"
 import Link from "next/link"
 import { useQuery } from "@tanstack/react-query"
 import { api } from "@/lib/api"
@@ -505,16 +505,61 @@ const RESULT_STEP  = PHASE3_LAST + 2
 
 const GLOBAL_TOTAL = PHASE1_QUESTIONS.length + 15 + PHASE3_QUESTIONS.length // 20 + 15 + 5
 
+// ─── Ranking de carreras ──────────────────────────────────────────────────────
+
+const MIN_RESULTS = 4
+const AFFINITY_THRESHOLD = 50
+
+// ─── Generación de respuestas aleatorias (testing) ───────────────────────────
+
+// Genera un perfil completo con respuestas aleatorias, listo para guardar con
+// saveProfile(). Útil para probar la pantalla de resultados sin completar el
+// test manualmente (p. ej. en un build limpio sin perfil guardado).
+export function generateRandomProfile() {
+  const p1: Record<number, number> = {}
+  PHASE1_QUESTIONS.forEach((_, i) => { p1[i] = Math.floor(Math.random() * 5) })
+
+  const scores = calcPhase1Scores(p1)
+  const sorted = Object.entries(scores).sort((a, b) => b[1] - a[1])
+  const top3 = sorted.slice(0, 3).map(([name]) => name)
+
+  const p2: Record<string, number> = {}
+  top3.forEach((area, ai) => {
+    ;(AREA_CAREER_QUESTIONS[area] ?? []).forEach((_, qi) => {
+      p2[`${ai}_${qi}`] = Math.floor(Math.random() * 5)
+    })
+  })
+
+  const p3: Record<string, string> = {}
+  PHASE3_QUESTIONS.forEach(q => {
+    p3[q.id] = q.options[Math.floor(Math.random() * q.options.length)].value
+  })
+
+  const topArea = sorted[0]?.[0] ?? ""
+
+  return {
+    phase1Answers: p1,
+    phase2Answers: p2,
+    phase3Answers: p3,
+    scores,
+    sorted,
+    top3,
+    topArea,
+  }
+}
+
 // ─── Componente principal ─────────────────────────────────────────────────────
 
 export function VocationalTest({
   skipIntro = false,
   forceIntro = false,
   onClose,
+  onResultsView,
 }: {
   skipIntro?: boolean
   forceIntro?: boolean
   onClose?: () => void
+  onResultsView?: (isResults: boolean) => void
 } = {}) {
   const { saveProfile, profile, hydrated } = useVocationalProfile()
 
@@ -647,27 +692,8 @@ export function VocationalTest({
   }
 
   async function fillRandomAndSave() {
-    const p1: Record<number, number> = {}
-    PHASE1_QUESTIONS.forEach((_, i) => { p1[i] = Math.floor(Math.random() * 5) })
-
-    const scores = calcPhase1Scores(p1)
-    const sorted = Object.entries(scores).sort((a, b) => b[1] - a[1])
-    const top3 = sorted.slice(0, 3).map(([name]) => name)
-
-    const p2: Record<string, number> = {}
-    top3.forEach((area, ai) => {
-      ;(AREA_CAREER_QUESTIONS[area] ?? []).forEach((_, qi) => {
-        p2[`${ai}_${qi}`] = Math.floor(Math.random() * 5)
-      })
-    })
-
-    const p3: Record<string, string> = {}
-    PHASE3_QUESTIONS.forEach(q => {
-      p3[q.id] = q.options[Math.floor(Math.random() * q.options.length)].value
-    })
-
+    const { phase1Answers: p1, phase2Answers: p2, phase3Answers: p3, scores, sorted, top3, topArea } = generateRandomProfile()
     const computed = calcCareerScores(p2, top3)
-    const topArea = sorted[0]?.[0] ?? ""
 
     setPhase1Answers(p1)
     setPhase2Answers(p2)
@@ -706,6 +732,14 @@ export function VocationalTest({
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hydrated, profile, areas.length])
+
+  // Notifica al contenedor si estamos mostrando la pantalla de resultados, para
+  // que pueda ajustar el ancho disponible (resultados/comparador ocupan todo el
+  // ancho, el resto del flujo queda centrado).
+  useEffect(() => {
+    onResultsView?.(step === RESULT_STEP)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step])
 
   // ── Cargando (esperando hidratación o áreas cuando hay perfil guardado) ──
   if (!hydrated || (!forceIntro && profile && areas.length === 0 && step === 0)) {
@@ -1126,6 +1160,9 @@ function ResultsCarousel({
   navContainerClass?: string
 }) {
   const trackRef = useRef<HTMLDivElement>(null)
+  const slide1Ref = useRef<HTMLDivElement>(null)
+  const slide2Ref = useRef<HTMLDivElement>(null)
+  const [trackHeight, setTrackHeight] = useState<number>()
 
   function goTo(n: number) {
     const el = trackRef.current
@@ -1139,20 +1176,39 @@ function ResultsCarousel({
     onSlideChange(Math.round(el.scrollLeft / el.clientWidth))
   }
 
+  // Track height follows the active slide's content height, not the tallest of
+  // the two — otherwise the inactive (off-screen) slide leaves a big empty gap
+  // below the visible one. Re-measures whenever the active slide's content
+  // resizes (e.g. comparator data finishes loading).
+  useLayoutEffect(() => {
+    const el = activeSlide === 0 ? slide1Ref.current : slide2Ref.current
+    if (!el) return
+
+    const update = () => setTrackHeight(el.scrollHeight)
+    update()
+
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [activeSlide])
+
   return (
     <div className="space-y-3">
       {/* Navigation bar — optionally constrained to match slide 1 width */}
       <div className={navContainerClass}>
-        <div className="flex items-center justify-between px-1">
-          <button
-            onClick={() => goTo(0)}
-            disabled={activeSlide === 0}
-            className="cursor-pointer inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground disabled:opacity-30 disabled:cursor-default hover:text-foreground transition-colors"
-          >
-            <ArrowLeft className="size-4" />
-            Resultados
-          </button>
-          <div className="flex gap-2">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex-1 flex justify-start">
+            {activeSlide !== 0 && (
+              <button
+                onClick={() => goTo(0)}
+                className="cursor-pointer inline-flex items-center gap-2 rounded-full border bg-card px-4 py-2 text-sm font-semibold shadow-sm hover:bg-muted/40 hover:border-primary/40 transition-colors"
+              >
+                <ArrowLeft className="size-4" />
+                Resultados
+              </button>
+            )}
+          </div>
+          <div className="flex gap-2 shrink-0">
             {[0, 1].map((i) => (
               <button
                 key={i}
@@ -1163,14 +1219,17 @@ function ResultsCarousel({
               />
             ))}
           </div>
-          <button
-            onClick={() => goTo(1)}
-            disabled={activeSlide === 1}
-            className="cursor-pointer inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground disabled:opacity-30 disabled:cursor-default hover:text-foreground transition-colors"
-          >
-            {slide2Label}
-            <ArrowRight className="size-4" />
-          </button>
+          <div className="flex-1 flex justify-end">
+            {activeSlide !== 1 && (
+              <button
+                onClick={() => goTo(1)}
+                className="cursor-pointer inline-flex items-center gap-2 rounded-full bg-primary text-primary-foreground px-4 py-2 text-sm font-semibold shadow-sm hover:bg-primary/90 transition-colors"
+              >
+                {slide2Label}
+                <ArrowRight className="size-4" />
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -1178,10 +1237,11 @@ function ResultsCarousel({
       <div
         ref={trackRef}
         onScroll={handleScroll}
-        className="flex overflow-x-scroll snap-x snap-mandatory scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        style={trackHeight !== undefined ? { height: trackHeight } : undefined}
+        className="flex items-start overflow-x-scroll overflow-y-hidden snap-x snap-mandatory scroll-smooth transition-[height] duration-300 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
-        <div className="min-w-full shrink-0 snap-start">{slide1}</div>
-        <div className="min-w-full shrink-0 snap-start">{slide2}</div>
+        <div ref={slide1Ref} className="min-w-full shrink-0 snap-start">{slide1}</div>
+        <div ref={slide2Ref} className="min-w-full shrink-0 snap-start">{slide2}</div>
       </div>
     </div>
   )
@@ -1237,12 +1297,14 @@ function ResultsScreen({
     [careers, careerScores]
   )
 
-  const filteredByView = useMemo(() =>
-    selectedAreas.size === 0
+  const filteredByView = useMemo(() => {
+    const base = selectedAreas.size === 0
       ? scoredCareers
-      : scoredCareers.filter(c => selectedAreas.has(c.area.name)),
-    [scoredCareers, selectedAreas]
-  )
+      : scoredCareers.filter(c => selectedAreas.has(c.area.name))
+
+    const highAffinity = base.filter(c => c.affinity >= AFFINITY_THRESHOLD)
+    return highAffinity.length >= MIN_RESULTS ? highAffinity : base
+  }, [scoredCareers, selectedAreas])
 
   const topN = useMemo(() => filteredByView.slice(0, MAX_COMPARE), [filteredByView])
   const comparisonIds = useMemo(() => topN.map(c => c.id), [topN])
@@ -1316,8 +1378,8 @@ function ResultsScreen({
         slide2Label={slide2Label}
         activeSlide={activeSlide}
         onSlideChange={setActiveSlide}
-        navContainerClass="max-w-4xl mx-auto px-4"
-        slide1={<div className="max-w-4xl mx-auto px-4 space-y-10">
+        navContainerClass="px-6 lg:px-8"
+        slide1={<div className="p-6 lg:p-8 space-y-10">
 
       {/* ── Top 3 áreas ── */}
       <section className="space-y-4">
@@ -1346,7 +1408,7 @@ function ResultsScreen({
                     {AREA_EMOJIS[name]} {name}
                   </p>
                 </div>
-                <div className="h-2 bg-muted rounded-full overflow-hidden">
+                <div className="h-2 bg-muted-foreground/20 rounded-full overflow-hidden">
                   <div
                     className="h-full rounded-full transition-all duration-700"
                     style={{ width: `${score}%`, backgroundColor: color }}
@@ -1408,7 +1470,7 @@ function ResultsScreen({
             No hay carreras disponibles para esta selección.
           </p>
         ) : (
-          <div className="space-y-2">
+          <div className="grid gap-2 lg:grid-cols-2">
             {filteredByView.map((career, i) => {
               const color = AREA_COLORS[career.area.name] ?? "hsl(var(--primary))"
               const isTopN = i < MAX_COMPARE
@@ -1428,12 +1490,12 @@ function ResultsScreen({
                         </span>
                         <span
                           className="text-sm font-bold tabular-nums shrink-0"
-                          style={{ color: career.affinity >= 60 ? color : "hsl(var(--muted-foreground))" }}
+                          style={{ color: career.affinity >= 60 ? color : "var(--muted-foreground)" }}
                         >
                           {career.affinity > 0 ? `${career.affinity}%` : "—"}
                         </span>
                       </div>
-                      <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                      <div className="h-1.5 bg-muted-foreground/20 rounded-full overflow-hidden">
                         <div
                           className="h-full rounded-full transition-all duration-700"
                           style={{ width: `${career.affinity}%`, backgroundColor: color }}
@@ -1497,7 +1559,7 @@ function ResultsScreen({
                 Podés explorar el catálogo completo para encontrar opciones que se ajusten.
               </p>
             ) : (
-              <div className="space-y-2">
+              <div className="grid gap-2 lg:grid-cols-2">
                 {recommended.map((career) => {
                   const score = careerScores[normalizeCareerName(career.name)] ?? 0
                   const color = AREA_COLORS[career.area.name] ?? "hsl(var(--primary))"
@@ -1548,7 +1610,7 @@ function ResultsScreen({
                 <PolarGrid />
                 <PolarAngleAxis
                   dataKey="area"
-                  tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+                  tick={{ fontSize: 10, fill: "var(--foreground)" }}
                 />
                 <Radar
                   name="Puntaje"
