@@ -10,7 +10,7 @@ export function HomeContent({ secondarySections }: { secondarySections: React.Re
     <>
       <section className="space-y-6 pt-4">
         <h1 className="max-w-5xl mx-auto px-6 lg:px-10 text-4xl font-bold tracking-tight lg:text-5xl">
-          Encontrá la carrera universitaria<br className="hidden md:block" /> que estás buscando
+          Encontrá la carrera universitaria<br className="hidden md:block" /> para vos
         </h1>
         <VocationalTestHomeSection onResultsViewChange={setIsResultsView} />
       </section>
