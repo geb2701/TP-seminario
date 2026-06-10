@@ -1,7 +1,9 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useLayoutEffect, useRef, useMemo } from "react"
 import Link from "next/link"
+import { useQuery } from "@tanstack/react-query"
+import { api } from "@/lib/api"
 import {
   Radar,
   RadarChart,
@@ -25,7 +27,12 @@ import {
   Sparkles,
 } from "lucide-react"
 import { useVocationalProfile } from "@/hooks/use-vocational-profile"
+import { useCompareCareers, MAX_COMPARE } from "@/hooks/use-compare-careers"
 import { AREA_COLORS, AREA_EMOJIS } from "./constants"
+import { ComparisonPanel, type CompareCareer } from "./ComparisonPanel"
+import { CareerDetailPanel, type CareerDetailFull } from "./CareerDetailPanel"
+import { EmptyState } from "@/components/empty-state"
+import { Search } from "lucide-react"
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
 
@@ -498,14 +505,61 @@ const RESULT_STEP  = PHASE3_LAST + 2
 
 const GLOBAL_TOTAL = PHASE1_QUESTIONS.length + 15 + PHASE3_QUESTIONS.length // 20 + 15 + 5
 
+// ─── Ranking de carreras ──────────────────────────────────────────────────────
+
+const MIN_RESULTS = 4
+const AFFINITY_THRESHOLD = 50
+
+// ─── Generación de respuestas aleatorias (testing) ───────────────────────────
+
+// Genera un perfil completo con respuestas aleatorias, listo para guardar con
+// saveProfile(). Útil para probar la pantalla de resultados sin completar el
+// test manualmente (p. ej. en un build limpio sin perfil guardado).
+export function generateRandomProfile() {
+  const p1: Record<number, number> = {}
+  PHASE1_QUESTIONS.forEach((_, i) => { p1[i] = Math.floor(Math.random() * 5) })
+
+  const scores = calcPhase1Scores(p1)
+  const sorted = Object.entries(scores).sort((a, b) => b[1] - a[1])
+  const top3 = sorted.slice(0, 3).map(([name]) => name)
+
+  const p2: Record<string, number> = {}
+  top3.forEach((area, ai) => {
+    ;(AREA_CAREER_QUESTIONS[area] ?? []).forEach((_, qi) => {
+      p2[`${ai}_${qi}`] = Math.floor(Math.random() * 5)
+    })
+  })
+
+  const p3: Record<string, string> = {}
+  PHASE3_QUESTIONS.forEach(q => {
+    p3[q.id] = q.options[Math.floor(Math.random() * q.options.length)].value
+  })
+
+  const topArea = sorted[0]?.[0] ?? ""
+
+  return {
+    phase1Answers: p1,
+    phase2Answers: p2,
+    phase3Answers: p3,
+    scores,
+    sorted,
+    top3,
+    topArea,
+  }
+}
+
 // ─── Componente principal ─────────────────────────────────────────────────────
 
 export function VocationalTest({
   skipIntro = false,
+  forceIntro = false,
   onClose,
+  onResultsView,
 }: {
   skipIntro?: boolean
+  forceIntro?: boolean
   onClose?: () => void
+  onResultsView?: (isResults: boolean) => void
 } = {}) {
   const { saveProfile, profile, hydrated } = useVocationalProfile()
 
@@ -568,8 +622,9 @@ export function VocationalTest({
           if (!seen.has(c.id)) { seen.add(c.id); merged.push(c) }
         }
       }
-      merged.sort((a, b) => (top3.indexOf(a.area.name) - top3.indexOf(b.area.name)))
-      setCareers(merged.slice(0, 6))
+      const cs = calcCareerScores(savedPhase2, top3)
+      merged.sort((a, b) => (cs[normalizeCareerName(b.name)] ?? 0) - (cs[normalizeCareerName(a.name)] ?? 0))
+      setCareers(merged)
     } catch {
       // silently ignore
     } finally {
@@ -613,7 +668,7 @@ export function VocationalTest({
       }
 
       merged.sort((a, b) => (computed[normalizeCareerName(b.name)] ?? 0) - (computed[normalizeCareerName(a.name)] ?? 0))
-      setCareers(merged.slice(0, 6))
+      setCareers(merged)
     } catch {
       // silently ignore
     } finally {
@@ -636,16 +691,58 @@ export function VocationalTest({
     setSaved(false)
   }
 
+  async function fillRandomAndSave() {
+    const { phase1Answers: p1, phase2Answers: p2, phase3Answers: p3, scores, sorted, top3, topArea } = generateRandomProfile()
+    const computed = calcCareerScores(p2, top3)
+
+    setPhase1Answers(p1)
+    setPhase2Answers(p2)
+    setPhase3Answers(p3)
+    setTop3Areas(top3)
+    setCareerScores(computed)
+    setSavedScores(sorted)
+    setPersonName("Dev")
+    saveProfile({ scores, topArea, personName: "Dev", phase2Answers: p2, phase3Answers: p3 })
+    setSaved(true)
+    setStep(RESULT_STEP)
+
+    setLoadingCareers(true)
+    const top3Ids = top3.map(name => areas.find(a => a.name === name)?.id).filter(Boolean) as string[]
+    try {
+      const results = await Promise.all(
+        top3Ids.map(id => fetch(`/api/careers?areaId=${id}`).then(r => r.json() as Promise<CareerResult[]>))
+      )
+      const merged: CareerResult[] = []
+      const seen = new Set<string>()
+      for (const list of results) {
+        for (const c of list) {
+          if (!seen.has(c.id)) { seen.add(c.id); merged.push(c) }
+        }
+      }
+      merged.sort((a, b) => (computed[normalizeCareerName(b.name)] ?? 0) - (computed[normalizeCareerName(a.name)] ?? 0))
+      setCareers(merged)
+    } catch {}
+    finally { setLoadingCareers(false) }
+  }
+
   // Auto-carga resultados guardados en cuanto están disponibles los datos de áreas
   useEffect(() => {
-    if (hydrated && profile && areas.length > 0 && step === 0) {
+    if (!forceIntro && hydrated && profile && areas.length > 0 && step === 0) {
       viewSavedResults()
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hydrated, profile, areas.length])
 
+  // Notifica al contenedor si estamos mostrando la pantalla de resultados, para
+  // que pueda ajustar el ancho disponible (resultados/comparador ocupan todo el
+  // ancho, el resto del flujo queda centrado).
+  useEffect(() => {
+    onResultsView?.(step === RESULT_STEP)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step])
+
   // ── Cargando (esperando hidratación o áreas cuando hay perfil guardado) ──
-  if (!hydrated || (profile && areas.length === 0 && step === 0)) {
+  if (!hydrated || (!forceIntro && profile && areas.length === 0 && step === 0)) {
     return (
       <div className="flex items-center justify-center min-h-[80vh]">
         <div className="size-6 rounded-full border-2 border-primary border-t-transparent animate-spin" />
@@ -656,7 +753,21 @@ export function VocationalTest({
   // ── Intro ──
   if (step === 0) {
     if (skipIntro) { onClose?.(); return null }
-    return <IntroScreen onStart={() => setStep(1)} />
+    return (
+      <>
+        <IntroScreen onStart={() => setStep(1)} />
+        {process.env.NODE_ENV === "development" && (forceIntro || !onClose) && (
+          <div className="fixed bottom-4 right-4 z-50">
+            <button
+              onClick={fillRandomAndSave}
+              className="cursor-pointer rounded-lg bg-yellow-400 px-3 py-2 text-xs font-semibold text-yellow-900 shadow-lg hover:bg-yellow-300 transition-colors"
+            >
+              🎲 Rellenar aleatorio
+            </button>
+          </div>
+        )}
+      </>
+    )
   }
 
   // ── Fase 1 ──
@@ -1031,6 +1142,111 @@ function SaveScreen({
   )
 }
 
+// ─── Carousel ─────────────────────────────────────────────────────────────────
+
+function ResultsCarousel({
+  slide1,
+  slide2,
+  slide2Label,
+  activeSlide,
+  onSlideChange,
+  navContainerClass = "",
+}: {
+  slide1: React.ReactNode
+  slide2: React.ReactNode
+  slide2Label: string
+  activeSlide: number
+  onSlideChange: (n: number) => void
+  navContainerClass?: string
+}) {
+  const trackRef = useRef<HTMLDivElement>(null)
+  const slide1Ref = useRef<HTMLDivElement>(null)
+  const slide2Ref = useRef<HTMLDivElement>(null)
+  const [trackHeight, setTrackHeight] = useState<number>()
+
+  function goTo(n: number) {
+    const el = trackRef.current
+    if (!el) return
+    el.scrollTo({ left: n * el.clientWidth, behavior: "smooth" })
+  }
+
+  function handleScroll() {
+    const el = trackRef.current
+    if (!el) return
+    onSlideChange(Math.round(el.scrollLeft / el.clientWidth))
+  }
+
+  // Track height follows the active slide's content height, not the tallest of
+  // the two — otherwise the inactive (off-screen) slide leaves a big empty gap
+  // below the visible one. Re-measures whenever the active slide's content
+  // resizes (e.g. comparator data finishes loading).
+  useLayoutEffect(() => {
+    const el = activeSlide === 0 ? slide1Ref.current : slide2Ref.current
+    if (!el) return
+
+    const update = () => setTrackHeight(el.scrollHeight)
+    update()
+
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [activeSlide])
+
+  return (
+    <div className="space-y-3">
+      {/* Navigation bar — optionally constrained to match slide 1 width */}
+      <div className={navContainerClass}>
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex-1 flex justify-start">
+            {activeSlide !== 0 && (
+              <button
+                onClick={() => goTo(0)}
+                className="cursor-pointer inline-flex items-center gap-2 rounded-full border bg-card px-4 py-2 text-sm font-semibold shadow-sm hover:bg-muted/40 hover:border-primary/40 transition-colors"
+              >
+                <ArrowLeft className="size-4" />
+                Resultados
+              </button>
+            )}
+          </div>
+          <div className="flex gap-2 shrink-0">
+            {[0, 1].map((i) => (
+              <button
+                key={i}
+                onClick={() => goTo(i)}
+                className={`cursor-pointer size-2 rounded-full transition-colors ${
+                  activeSlide === i ? "bg-primary" : "bg-muted hover:bg-muted-foreground/40"
+                }`}
+              />
+            ))}
+          </div>
+          <div className="flex-1 flex justify-end">
+            {activeSlide !== 1 && (
+              <button
+                onClick={() => goTo(1)}
+                className="cursor-pointer inline-flex items-center gap-2 rounded-full bg-primary text-primary-foreground px-4 py-2 text-sm font-semibold shadow-sm hover:bg-primary/90 transition-colors"
+              >
+                {slide2Label}
+                <ArrowRight className="size-4" />
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Scrollable track */}
+      <div
+        ref={trackRef}
+        onScroll={handleScroll}
+        style={trackHeight !== undefined ? { height: trackHeight } : undefined}
+        className="flex items-start overflow-x-scroll overflow-y-hidden snap-x snap-mandatory scroll-smooth transition-[height] duration-300 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      >
+        <div ref={slide1Ref} className="min-w-full shrink-0 snap-start">{slide1}</div>
+        <div ref={slide2Ref} className="min-w-full shrink-0 snap-start">{slide2}</div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Resultados ───────────────────────────────────────────────────────────────
 
 const MODALITY_LABEL: Record<string, string> = {
@@ -1060,33 +1276,91 @@ function ResultsScreen({
   personName: string
   onReset: () => void
 }) {
+  const [selectedAreas, setSelectedAreas] = useState<Set<string>>(new Set())
+  const [activeSlide, setActiveSlide] = useState(0)
+  const { set: setCompareIds } = useCompareCareers()
+
   const radarData = sortedPhase1.map(([name, score]) => ({
     area: name.replace("Ciencias ", "Cs. ").replace(" y ", "\ny "),
     score,
   }))
 
-  // Agrupar carreras por área (en orden de top3)
-  const careersByArea: Record<string, CareerResult[]> = {}
-  for (const c of careers) {
-    if (!careersByArea[c.area.name]) careersByArea[c.area.name] = []
-    careersByArea[c.area.name].push(c)
-  }
-  for (const area of top3Areas) {
-    careersByArea[area]?.sort((a, b) => (careerScores[normalizeCareerName(b.name)] ?? 0) - (careerScores[normalizeCareerName(a.name)] ?? 0))
-  }
-
   const medals = ["🥇", "🥈", "🥉"]
 
-  // Preferencias seleccionadas para mostrar como chips informativos
+  // Memoize derived arrays so their references are stable across re-renders.
+  // Without this, .map().sort() creates new objects every render, which causes
+  // the useEffect below to see a changed dependency on every render and loop.
+  const scoredCareers = useMemo(() =>
+    careers
+      .map(c => ({ ...c, affinity: careerScores[normalizeCareerName(c.name)] ?? 0 }))
+      .sort((a, b) => b.affinity - a.affinity),
+    [careers, careerScores]
+  )
+
+  const filteredByView = useMemo(() => {
+    const base = selectedAreas.size === 0
+      ? scoredCareers
+      : scoredCareers.filter(c => selectedAreas.has(c.area.name))
+
+    const highAffinity = base.filter(c => c.affinity >= AFFINITY_THRESHOLD)
+    return highAffinity.length >= MIN_RESULTS ? highAffinity : base
+  }, [scoredCareers, selectedAreas])
+
+  const topN = useMemo(() => filteredByView.slice(0, MAX_COMPARE), [filteredByView])
+  const comparisonIds = useMemo(() => topN.map(c => c.id), [topN])
+  const isSingle = comparisonIds.length === 1
+
+  // Auto-sync topN into comparator (localStorage) whenever the IDs actually change
+  useEffect(() => {
+    if (comparisonIds.length > 0) setCompareIds(comparisonIds)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [comparisonIds])
+
+  // Slide 2 data: comparison (N ≥ 2) or single career detail (N = 1)
+  const { data: comparisonData, isLoading: comparisonLoading } = useQuery<CompareCareer[]>({
+    queryKey: ["results-comparison", comparisonIds],
+    queryFn: () => api.get(`careers/compare?ids=${comparisonIds.join(",")}`).json<CompareCareer[]>(),
+    enabled: comparisonIds.length >= 2,
+    staleTime: 5 * 60 * 1000,
+  })
+
+  const { data: singleData, isLoading: singleLoading } = useQuery<CareerDetailFull>({
+    queryKey: ["results-single", comparisonIds[0]],
+    queryFn: () => api.get(`careers/${comparisonIds[0]}`).json<CareerDetailFull>(),
+    enabled: isSingle,
+    staleTime: 5 * 60 * 1000,
+  })
+
+  const slide2Label = isSingle ? "Carrera" : "Comparar"
+
+  function toggleArea(area: string) {
+    setSelectedAreas(prev => {
+      const next = new Set(prev)
+      next.has(area) ? next.delete(area) : next.add(area)
+      return next
+    })
+  }
+
+  function clearAreas() {
+    setSelectedAreas(new Set())
+  }
+
+  // Phase 3 preference filters
   const modalityPref = phase3Answers["modality"]
   const typePref     = phase3Answers["type"]
   const durationPref = phase3Answers["duration"]
 
+  const slide2Content = comparisonIds.length === 0
+    ? <EmptyState icon={Search} title="Sin carreras para comparar" description="Ajustá los filtros de área para ver resultados." />
+    : isSingle
+      ? <CareerDetailPanel data={singleData} isLoading={singleLoading} careerScores={careerScores} />
+      : <ComparisonPanel data={comparisonData} isLoading={comparisonLoading} careerScores={careerScores} selectedIds={comparisonIds} />
+
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8 space-y-10">
+    <div className="py-8 space-y-6">
 
       {/* ── Encabezado ── */}
-      <div className="text-center space-y-2">
+      <div className="max-w-4xl mx-auto px-4 text-center space-y-2">
         <div className="text-5xl">🎯</div>
         <h1 className="text-2xl font-bold">
           {personName ? `Resultados de ${personName}` : "Tus resultados"}
@@ -1098,6 +1372,14 @@ function ResultsScreen({
           </div>
         )}
       </div>
+
+      <ResultsCarousel
+        slide2={slide2Content}
+        slide2Label={slide2Label}
+        activeSlide={activeSlide}
+        onSlideChange={setActiveSlide}
+        navContainerClass="px-6 lg:px-8"
+        slide1={<div className="p-6 lg:p-8 space-y-10">
 
       {/* ── Top 3 áreas ── */}
       <section className="space-y-4">
@@ -1126,7 +1408,7 @@ function ResultsScreen({
                     {AREA_EMOJIS[name]} {name}
                   </p>
                 </div>
-                <div className="h-2 bg-muted rounded-full overflow-hidden">
+                <div className="h-2 bg-muted-foreground/20 rounded-full overflow-hidden">
                   <div
                     className="h-full rounded-full transition-all duration-700"
                     style={{ width: `${score}%`, backgroundColor: color }}
@@ -1138,107 +1420,99 @@ function ResultsScreen({
         </div>
       </section>
 
-
-      {/* ── Afinidad con carreras ── */}
-      <section className="space-y-6">
+      {/* ── Carreras más compatibles: ranked list + toggle + comparador ── */}
+      <section className="space-y-4">
         <div className="flex items-center gap-2">
           <Trophy className="size-5 text-yellow-500" />
-          <h2 className="text-lg font-semibold">Afinidad con carreras</h2>
+          <h2 className="text-lg font-semibold">Carreras más compatibles</h2>
+        </div>
+
+        {/* Area filter chips */}
+        <div className="flex flex-wrap gap-2 text-sm">
+          <button
+            onClick={clearAreas}
+            className={`cursor-pointer rounded-full px-3 py-1.5 font-medium border transition-colors ${
+              selectedAreas.size === 0
+                ? "bg-primary text-primary-foreground border-primary"
+                : "bg-muted/50 text-muted-foreground border-border hover:border-primary/40"
+            }`}
+          >
+            Todas las áreas
+          </button>
+          {top3Areas.map(area => {
+            const active = selectedAreas.has(area)
+            const color = AREA_COLORS[area] ?? "hsl(var(--primary))"
+            return (
+              <button
+                key={area}
+                onClick={() => toggleArea(area)}
+                className={`cursor-pointer rounded-full px-3 py-1.5 font-medium border transition-colors ${
+                  active
+                    ? "text-foreground"
+                    : "bg-muted/50 text-muted-foreground border-border hover:border-primary/40"
+                }`}
+                style={active ? { borderColor: color, backgroundColor: `${color}18` } : undefined}
+              >
+                {AREA_EMOJIS[area]} {area}
+              </button>
+            )
+          })}
         </div>
 
         {loadingCareers ? (
-          <div className="space-y-4">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="h-28 rounded-xl bg-muted animate-pulse" />
+          <div className="space-y-2">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="h-16 rounded-lg bg-muted animate-pulse" />
             ))}
           </div>
+        ) : filteredByView.length === 0 ? (
+          <p className="text-sm text-muted-foreground py-4">
+            No hay carreras disponibles para esta selección.
+          </p>
         ) : (
-          <div className="space-y-6">
-            {top3Areas.map((areaName) => {
-              const areaColor = AREA_COLORS[areaName] ?? "hsl(var(--primary))"
-              const areaCareers = careersByArea[areaName] ?? []
-              if (areaCareers.length === 0) return null
-
+          <div className="grid gap-2 lg:grid-cols-2">
+            {filteredByView.map((career, i) => {
+              const color = AREA_COLORS[career.area.name] ?? "hsl(var(--primary))"
+              const isTopN = i < MAX_COMPARE
               return (
-                <div key={areaName} className="space-y-3">
-                  <p className="text-sm font-semibold text-muted-foreground">
-                    {AREA_EMOJIS[areaName]} {areaName}
-                  </p>
-                  <div className="space-y-2">
-                    {areaCareers.map((career) => {
-                      const score = careerScores[normalizeCareerName(career.name)] ?? 0
-                      return (
-                        <Link
-                          key={career.id}
-                          href={`/carreras/${career.id}`}
-                          className="group flex items-center gap-3 rounded-lg border bg-card px-4 py-2.5 hover:border-primary/40 hover:bg-muted/40 transition-colors"
+                <div key={career.id} className="flex items-center gap-2">
+                  <span className={`text-sm tabular-nums w-5 text-right shrink-0 ${isTopN ? "font-bold" : "text-muted-foreground"}`}>
+                    {i + 1}.
+                  </span>
+                  <Link
+                    href={`/carreras/${career.id}`}
+                    className={`group flex-1 flex items-center gap-3 rounded-lg border bg-card px-4 py-2.5 hover:border-primary/40 hover:bg-muted/40 transition-colors ${isTopN ? "border-primary/20" : ""}`}
+                  >
+                    <div className="flex-1 space-y-1.5 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-sm font-medium group-hover:text-primary transition-colors truncate">
+                          {career.name}
+                        </span>
+                        <span
+                          className="text-sm font-bold tabular-nums shrink-0"
+                          style={{ color: career.affinity >= 60 ? color : "var(--muted-foreground)" }}
                         >
-                          <div className="flex-1 space-y-1.5">
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="text-sm font-medium group-hover:text-primary transition-colors">
-                                {career.name}
-                              </span>
-                              <span
-                                className="text-sm font-bold tabular-nums shrink-0"
-                                style={{ color: score >= 60 ? areaColor : "hsl(var(--muted-foreground))" }}
-                              >
-                                {score > 0 ? `${score}%` : "—"}
-                              </span>
-                            </div>
-                            <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                              <div
-                                className="h-full rounded-full transition-all duration-700"
-                                style={{ width: `${score}%`, backgroundColor: areaColor }}
-                              />
-                            </div>
-                            <p className="text-xs text-muted-foreground">{career.university.name}</p>
-                          </div>
-                          <ArrowRight className="size-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-                        </Link>
-                      )
-                    })}
-                  </div>
+                          {career.affinity > 0 ? `${career.affinity}%` : "—"}
+                        </span>
+                      </div>
+                      <div className="h-1.5 bg-muted-foreground/20 rounded-full overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all duration-700"
+                          style={{ width: `${career.affinity}%`, backgroundColor: color }}
+                        />
+                      </div>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {career.university.name} · {AREA_EMOJIS[career.area.name]} {career.area.name}
+                      </p>
+                    </div>
+                    <ArrowRight className="size-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                  </Link>
                 </div>
               )
             })}
           </div>
         )}
-      </section>
 
-      {/* ── Perfil completo (radar) ── */}
-      <section className="space-y-4">
-        <h2 className="text-base font-semibold text-muted-foreground">Perfil completo de intereses</h2>
-        <Card>
-          <CardContent className="pt-4">
-            <ResponsiveContainer width="100%" height={300}>
-              <RadarChart data={radarData}>
-                <PolarGrid />
-                <PolarAngleAxis
-                  dataKey="area"
-                  tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
-                />
-                <Radar
-                  name="Puntaje"
-                  dataKey="score"
-                  stroke="hsl(var(--primary))"
-                  fill="hsl(var(--primary))"
-                  fillOpacity={0.2}
-                  strokeWidth={2}
-                />
-                <Tooltip
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  formatter={(value: any) => [`${value}%`, "Afinidad"]}
-                  contentStyle={{
-                    background: "hsl(var(--card))",
-                    border: "1px solid hsl(var(--border))",
-                    borderRadius: "8px",
-                    fontSize: "12px",
-                  }}
-                />
-              </RadarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
       </section>
 
       {/* ── Recomendadas según preferencias prácticas ── */}
@@ -1285,7 +1559,7 @@ function ResultsScreen({
                 Podés explorar el catálogo completo para encontrar opciones que se ajusten.
               </p>
             ) : (
-              <div className="space-y-2">
+              <div className="grid gap-2 lg:grid-cols-2">
                 {recommended.map((career) => {
                   const score = careerScores[normalizeCareerName(career.name)] ?? 0
                   const color = AREA_COLORS[career.area.name] ?? "hsl(var(--primary))"
@@ -1326,6 +1600,42 @@ function ResultsScreen({
         )
       })()}
 
+      {/* ── Perfil completo (radar) ── */}
+      <section className="space-y-4">
+        <h2 className="text-base font-semibold text-muted-foreground">Perfil completo de intereses</h2>
+        <Card>
+          <CardContent className="pt-4">
+            <ResponsiveContainer width="100%" height={300}>
+              <RadarChart data={radarData}>
+                <PolarGrid />
+                <PolarAngleAxis
+                  dataKey="area"
+                  tick={{ fontSize: 10, fill: "var(--foreground)" }}
+                />
+                <Radar
+                  name="Puntaje"
+                  dataKey="score"
+                  stroke="#3b82f6"
+                  fill="#3b82f6"
+                  fillOpacity={0.35}
+                  strokeWidth={2}
+                />
+                <Tooltip
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  formatter={(value: any) => [`${value}%`, "Afinidad"]}
+                  contentStyle={{
+                    background: "hsl(var(--card))",
+                    border: "1px solid hsl(var(--border))",
+                    borderRadius: "8px",
+                    fontSize: "12px",
+                  }}
+                />
+              </RadarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      </section>
+
       {/* ── Acciones ── */}
       <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
         <Button variant="outline" onClick={onReset} className="gap-2">
@@ -1340,6 +1650,8 @@ function ResultsScreen({
           Explorar todas las carreras
         </Link>
       </div>
+        </div>}
+      />
     </div>
   )
 }

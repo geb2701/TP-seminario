@@ -1,9 +1,9 @@
 "use client"
 
-import { useState } from "react"
-import { ArrowRight, RotateCcw } from "lucide-react"
+import { useState, useEffect } from "react"
+import { ArrowLeft, ArrowRight, RotateCcw } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { VocationalTest } from "@/app/orientacion/VocationalTest"
+import { VocationalTest, generateRandomProfile } from "@/app/orientacion/VocationalTest"
 import { useVocationalProfile } from "@/hooks/use-vocational-profile"
 import { AREA_COLORS, AREA_EMOJIS } from "@/app/orientacion/constants"
 
@@ -11,30 +11,47 @@ type QuizMode = "view" | "retake"
 
 const medals = ["🥇", "🥈", "🥉"]
 
-export function VocationalTestHomeSection() {
+export function VocationalTestHomeSection({
+  onResultsViewChange,
+}: {
+  onResultsViewChange?: (isResultsView: boolean) => void
+} = {}) {
   const [quizMode, setQuizMode] = useState<QuizMode | null>(null)
-  const { profile, hydrated } = useVocationalProfile()
+  const [isResultsView, setIsResultsView] = useState(false)
+  const { profile, hydrated, saveProfile } = useVocationalProfile()
+
+  useEffect(() => {
+    onResultsViewChange?.(isResultsView)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isResultsView])
 
   if (quizMode !== null) {
     return (
       <div className="space-y-2">
-        <button
-          onClick={() => setQuizMode(null)}
-          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
-        >
-          ← Volver al inicio
-        </button>
-        {quizMode === "view"
-          ? <VocationalTest onClose={() => setQuizMode(null)} />
-          : <VocationalTest skipIntro onClose={() => setQuizMode(null)} />
-        }
+        <div className="px-6 lg:px-10">
+          <button
+            onClick={() => { setQuizMode(null); setIsResultsView(false) }}
+            className="cursor-pointer inline-flex items-center gap-2 rounded-full border bg-card px-4 py-2 text-sm font-semibold shadow-sm hover:bg-muted/40 hover:border-primary/40 transition-colors"
+          >
+            <ArrowLeft className="size-4" />
+            Volver al inicio
+          </button>
+        </div>
+        <div className={isResultsView ? "" : "max-w-5xl mx-auto px-6 lg:px-10"}>
+          {quizMode === "view"
+            ? <VocationalTest onClose={() => setQuizMode(null)} onResultsView={setIsResultsView} />
+            : profile
+              ? <VocationalTest forceIntro onClose={() => setQuizMode(null)} onResultsView={setIsResultsView} />
+              : <VocationalTest skipIntro onClose={() => setQuizMode(null)} onResultsView={setIsResultsView} />
+          }
+        </div>
       </div>
     )
   }
 
   if (!hydrated) {
     return (
-      <div className="space-y-4">
+      <div className="max-w-5xl mx-auto px-6 lg:px-10 space-y-4">
         <div className="h-5 w-3/4 animate-pulse rounded bg-muted" />
         <div className="space-y-2">
           {[70, 55, 40].map((w) => (
@@ -56,7 +73,7 @@ export function VocationalTestHomeSection() {
     })
 
     return (
-      <div className="space-y-5">
+      <div className="max-w-5xl mx-auto px-6 lg:px-10 space-y-5">
         <p className="text-lg text-muted-foreground">
           Guardado el {savedDate}
           {profile.personName && (
@@ -103,7 +120,7 @@ export function VocationalTestHomeSection() {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="max-w-5xl mx-auto px-6 lg:px-10 space-y-5">
       <p className="text-lg text-muted-foreground max-w-2xl">
         Respondé 40 preguntas sobre tus intereses, habilidades y preferencias prácticas. En minutos tendrás un perfil vocacional con las áreas y carreras que mejor se adaptan a vos.
       </p>
@@ -117,10 +134,24 @@ export function VocationalTestHomeSection() {
         ))}
       </div>
 
-      <Button size="lg" onClick={() => setQuizMode("retake")} className="gap-2">
-        Comenzar test vocacional
-        <ArrowRight className="size-4" />
-      </Button>
+      <div className="flex flex-wrap items-center gap-3">
+        <Button size="lg" onClick={() => setQuizMode("retake")} className="gap-2">
+          Comenzar test vocacional
+          <ArrowRight className="size-4" />
+        </Button>
+        {process.env.NODE_ENV === "development" && (
+          <button
+            onClick={() => {
+              const { scores, topArea, phase2Answers, phase3Answers } = generateRandomProfile()
+              saveProfile({ scores, topArea, personName: "Dev", phase2Answers, phase3Answers })
+              setQuizMode("view")
+            }}
+            className="cursor-pointer rounded-lg bg-yellow-400 px-3 py-2 text-xs font-semibold text-yellow-900 shadow-lg hover:bg-yellow-300 transition-colors"
+          >
+            🎲 Generar resultados aleatorios
+          </button>
+        )}
+      </div>
     </div>
   )
 }
