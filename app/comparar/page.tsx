@@ -396,133 +396,170 @@ export default function ComparePage() {
 
       {selectedIds.length > 0 && (
         <>
-          <section className="overflow-x-auto rounded-lg border">
-            <table className="w-full border-collapse text-sm">
-              <thead>
-                <tr className="border-b bg-muted/40">
-                  <th className="text-left py-3 px-4 font-semibold sticky left-0 bg-muted/40 w-48">
-                    Característica
-                  </th>
-                  {isLoading
-                    ? selectedIds.map((id) => (
-                      <th key={id} className="py-3 px-4 min-w-[220px]">
-                        <Skeleton className="h-5 w-3/4" />
-                      </th>
-                    ))
-                    : compared?.map((career) => (
-                      <th key={career.id} className="text-left py-3 px-4 min-w-[220px]">
-                        <div className="flex items-start justify-between gap-2">
-                          <div>
-                            <p className="font-semibold">{career.name}</p>
-                            <p className="text-xs font-normal text-muted-foreground mt-0.5">
-                              {career.university.name}
-                            </p>
-                          </div>
-                          <button
-                            onClick={() => removeFromHook(career.id)}
-                            className="text-muted-foreground hover:text-destructive shrink-0 mt-0.5"
-                          >
-                            <X className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </th>
-                    ))}
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((row) => (
-                  <tr key={row.label} className="border-b last:border-0 hover:bg-muted/20">
-                    <td className="py-3 px-4 font-medium sticky left-0 bg-background text-muted-foreground">
-                      {row.label}
-                    </td>
-                    {isLoading
-                      ? selectedIds.map((id) => (
-                        <td key={id} className="py-3 px-4">
-                          <Skeleton className="h-4 w-3/4" />
-                        </td>
-                      ))
-                      : compared?.map((career) => (
-                        <td key={career.id} className="py-3 px-4">
-                          {row.render(career)}
-                        </td>
-                      ))}
-                  </tr>
-                ))}
-
-                {!isLoading && allYears.length > 0 && (
-                  <>
-                    <tr className="border-b bg-muted/40">
-                      <td
-                        colSpan={selectedIds.length + 1}
-                        className="py-2 px-4 text-sm font-semibold"
-                      >
-                        Plan de estudios
-                      </td>
-                    </tr>
-                    {allYears.map((year) => (
-                      <tr key={`year-${year}`} className="border-b last:border-0 hover:bg-muted/20 align-top">
-                        <td className="py-3 px-4 font-medium sticky left-0 bg-background text-muted-foreground whitespace-nowrap">
-                          {year}° año
-                        </td>
-                        {compared?.map((career) => {
-                          const plan = career.studyPlans.find((p) => p.year === year)
-                          return (
-                            <td key={career.id} className="py-3 px-4 align-top">
-                              {plan ? (
-                                plan.subjects.length > 0 ? (
-                                  <ul className="space-y-1">
-                                    {plan.subjects.map((s) => (
-                                      <li key={s.id} className="text-sm">{s.name}</li>
-                                    ))}
-                                  </ul>
-                                ) : (
-                                  <span className="text-sm text-muted-foreground">Sin materias cargadas</span>
-                                )
-                              ) : (
-                                <span className="text-sm text-muted-foreground">—</span>
-                              )}
-                            </td>
-                          )
-                        })}
+          <Accordion defaultValue={["overview"]} className="rounded-lg border bg-card px-4">
+            <AccordionItem value="overview" className="border-b">
+              <AccordionTrigger className="py-4 text-base font-semibold hover:no-underline">
+                Resumen lado a lado
+                <span className="ml-2 text-sm font-normal text-muted-foreground">
+                  Datos clave de cada carrera
+                </span>
+              </AccordionTrigger>
+              <AccordionContent className="pb-4">
+                <section className="overflow-x-auto rounded-lg border">
+                  <table className="w-full border-collapse text-sm">
+                    <thead>
+                      <tr className="border-b bg-muted/40">
+                        <th className="text-left py-3 px-4 font-semibold sticky left-0 bg-muted/40 w-48">
+                          Característica
+                        </th>
+                        {isLoading
+                          ? selectedIds.map((id) => (
+                            <th key={id} className="py-3 px-4 min-w-[220px]">
+                              <Skeleton className="h-5 w-3/4" />
+                            </th>
+                          ))
+                          : compared?.map((career) => (
+                            <th key={career.id} className="text-left py-3 px-4 min-w-[220px]">
+                              <div className="flex items-start justify-between gap-2">
+                                <div>
+                                  <p className="font-semibold">{career.name}</p>
+                                  <p className="text-xs font-normal text-muted-foreground mt-0.5">
+                                    {career.university.name}
+                                  </p>
+                                </div>
+                                <button
+                                  onClick={() => removeFromHook(career.id)}
+                                  className="text-muted-foreground hover:text-destructive shrink-0 mt-0.5"
+                                  aria-label={`Quitar ${career.name} de la comparación`}
+                                >
+                                  <X className="h-4 w-4" />
+                                </button>
+                              </div>
+                            </th>
+                          ))}
                       </tr>
-                    ))}
-                  </>
-                )}
-              </tbody>
-            </table>
-          </section>
+                    </thead>
+                    <tbody>
+                      {rows.map((row) => (
+                        <tr key={row.label} className="border-b last:border-0 hover:bg-muted/20">
+                          <td className="py-3 px-4 font-medium sticky left-0 bg-background text-muted-foreground">
+                            {row.label}
+                          </td>
+                          {isLoading
+                            ? selectedIds.map((id) => (
+                              <td key={id} className="py-3 px-4">
+                                <Skeleton className="h-4 w-3/4" />
+                              </td>
+                            ))
+                            : compared?.map((career) => (
+                              <td key={career.id} className="py-3 px-4">
+                                {row.render(career)}
+                              </td>
+                            ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </section>
+              </AccordionContent>
+            </AccordionItem>
 
-          {!isLoading && compared && compared.length > 0 && (
-            <section className="space-y-4">
-              <h2 className="text-xl font-semibold">Métricas comparativas</h2>
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                <MetricBarChart
-                  title="Estudiantes inscritos"
-                  data={studentsData}
-                  formatter={(v) => v.toLocaleString("es-AR")}
-                />
-                <MetricBarChart
-                  title="Duración (años)"
-                  data={durationData}
-                  formatter={(v) => `${v} año${v !== 1 ? "s" : ""}`}
-                  tickFormatter={(v) => String(v)}
-                  domain={[0, 7]}
-                />
-                <MetricBarChart
-                  title="Cantidad de materias"
-                  data={subjectsData}
-                  formatter={(v) => `${v} materia${v !== 1 ? "s" : ""}`}
-                  tickFormatter={(v) => String(v)}
-                />
-                <MetricBarChart
-                  title="Calificación promedio"
-                  data={ratingData}
-                  formatter={(v) => `${v} / 5`}
-                  domain={[0, 5]}
-                />
-              </div>
-            </section>
-          )}
+            {!isLoading && allYears.length > 0 && (
+              <AccordionItem value="study-plan" className="border-b">
+                <AccordionTrigger className="py-4 text-base font-semibold hover:no-underline">
+                  Plan de estudios por año
+                  <span className="ml-2 text-sm font-normal text-muted-foreground">
+                    Materias y cuatrimestres, solo si lo necesitás
+                  </span>
+                </AccordionTrigger>
+                <AccordionContent className="pb-4">
+                  <div className="space-y-4">
+                    {allYears.map((year) => (
+                      <Card key={`year-${year}`}>
+                        <CardHeader className="pb-3">
+                          <CardTitle className="text-base">{year}° año</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                            {compared?.map((career) => {
+                              const plan = career.studyPlans.find((p) => p.year === year)
+                              return (
+                                <div key={career.id} className="rounded-lg border bg-background p-4">
+                                  <p className="font-medium text-sm">{career.name}</p>
+                                  <p className="mt-0.5 text-xs text-muted-foreground">{career.university.name}</p>
+                                  <div className="mt-3">
+                                    {plan ? (
+                                      plan.subjects.length > 0 ? (
+                                        <ul className="space-y-1.5">
+                                          {plan.subjects.map((s) => (
+                                            <li key={s.id} className="text-sm leading-relaxed">
+                                              {s.name}
+                                              {s.semester ? (
+                                                <span className="ml-2 text-xs text-muted-foreground">
+                                                  {s.semester}° cuatri
+                                                </span>
+                                              ) : null}
+                                            </li>
+                                          ))}
+                                        </ul>
+                                      ) : (
+                                        <span className="text-sm text-muted-foreground">Sin materias cargadas</span>
+                                      )
+                                    ) : (
+                                      <span className="text-sm text-muted-foreground">—</span>
+                                    )}
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            )}
+
+            {!isLoading && compared && compared.length > 0 && (
+              <AccordionItem value="metrics">
+                <AccordionTrigger className="py-4 text-base font-semibold hover:no-underline">
+                  Métricas comparativas
+                  <span className="ml-2 text-sm font-normal text-muted-foreground">
+                    Gráficos para una lectura rápida
+                  </span>
+                </AccordionTrigger>
+                <AccordionContent className="pb-4">
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    <MetricBarChart
+                      title="Estudiantes inscritos"
+                      data={studentsData}
+                      formatter={(v) => v.toLocaleString("es-AR")}
+                    />
+                    <MetricBarChart
+                      title="Duración (años)"
+                      data={durationData}
+                      formatter={(v) => `${v} año${v !== 1 ? "s" : ""}`}
+                      tickFormatter={(v) => String(v)}
+                      domain={[0, 7]}
+                    />
+                    <MetricBarChart
+                      title="Cantidad de materias"
+                      data={subjectsData}
+                      formatter={(v) => `${v} materia${v !== 1 ? "s" : ""}`}
+                      tickFormatter={(v) => String(v)}
+                    />
+                    <MetricBarChart
+                      title="Calificación promedio"
+                      data={ratingData}
+                      formatter={(v) => `${v} / 5`}
+                      domain={[0, 5]}
+                    />
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            )}
+          </Accordion>
         </>
       )}
     </div>
