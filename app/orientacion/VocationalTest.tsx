@@ -30,6 +30,7 @@ import { useVocationalProfile } from "@/hooks/use-vocational-profile"
 import { useCompareCareers, MAX_COMPARE } from "@/hooks/use-compare-careers"
 import { AREA_COLORS, AREA_EMOJIS } from "./constants"
 import { ComparisonPanel, type CompareCareer } from "./ComparisonPanel"
+import { ExportPDFButton } from "@/components/exportar"
 import { CareerDetailPanel, type CareerDetailFull } from "./CareerDetailPanel"
 import { EmptyState } from "@/components/empty-state"
 import { Search } from "lucide-react"
@@ -1151,6 +1152,7 @@ function ResultsCarousel({
   activeSlide,
   onSlideChange,
   navContainerClass = "",
+  slide2RightAction,
 }: {
   slide1: React.ReactNode
   slide2: React.ReactNode
@@ -1158,6 +1160,7 @@ function ResultsCarousel({
   activeSlide: number
   onSlideChange: (n: number) => void
   navContainerClass?: string
+  slide2RightAction?: React.ReactNode
 }) {
   const trackRef = useRef<HTMLDivElement>(null)
   const slide1Ref = useRef<HTMLDivElement>(null)
@@ -1220,7 +1223,7 @@ function ResultsCarousel({
             ))}
           </div>
           <div className="flex-1 flex justify-end">
-            {activeSlide !== 1 && (
+            {activeSlide !== 1 ? (
               <button
                 onClick={() => goTo(1)}
                 className="cursor-pointer inline-flex items-center gap-2 rounded-full bg-primary text-primary-foreground px-4 py-2 text-sm font-semibold shadow-sm hover:bg-primary/90 transition-colors"
@@ -1228,7 +1231,7 @@ function ResultsCarousel({
                 {slide2Label}
                 <ArrowRight className="size-4" />
               </button>
-            )}
+            ) : (slide2RightAction ?? null)}
           </div>
         </div>
       </div>
@@ -1379,6 +1382,11 @@ function ResultsScreen({
         activeSlide={activeSlide}
         onSlideChange={setActiveSlide}
         navContainerClass="px-6 lg:px-8"
+        slide2RightAction={
+          !isSingle
+            ? <ExportPDFButton careers={comparisonData} isLoading={comparisonLoading} />
+            : undefined
+        }
         slide1={<div className="p-6 lg:p-8 space-y-10">
 
       {/* ── Top 3 áreas ── */}
