@@ -71,14 +71,29 @@ export function ExportPDFButton({
         .filter((y) => y > 0)
         .sort((a, b) => a - b)
 
-      // Build page start positions.
-      // Page 1 gets the full page height; pages 2+ get innerPageHeightPx.
+      // Find the forced page-2 break (study plans section).
+      // If this element falls within page 1's capacity, page 1 always ends here
+      // so the section always starts fresh on page 2, regardless of available space.
+      const forcedPage2El = el.querySelector<HTMLElement>("[data-pdf-force-page2]")
+      const forcedPage2Px = forcedPage2El
+        ? forcedPage2El.getBoundingClientRect().top - elTop
+        : null
+
+      // Build page start positions dynamically.
       const pageStarts: number[] = [0]
       let cursor = 0
       const minPagePx = pageHeightPx * 0.25
 
-      // First page (capacity reduced only by bottom margin)
-      if (firstPageCapacityPx < height) {
+      // Page 1: end at forced break if it falls within page 1's capacity,
+      // otherwise fall back to natural/preferred break.
+      const canForce =
+        forcedPage2Px !== null &&
+        forcedPage2Px > minPagePx &&
+        forcedPage2Px <= firstPageCapacityPx
+      if (canForce) {
+        pageStarts.push(forcedPage2Px!)
+        cursor = forcedPage2Px!
+      } else if (firstPageCapacityPx < height) {
         const naturalBreak = firstPageCapacityPx
         const preferred = breakPointsPx
           .filter((bp) => bp > minPagePx && bp <= naturalBreak)
@@ -87,7 +102,7 @@ export function ExportPDFButton({
         cursor = pageStarts.at(-1)!
       }
 
-      // Remaining pages (reduced capacity due to top margin)
+      // Remaining pages — fully dynamic, one page added only when needed.
       while (cursor + innerPageHeightPx < height) {
         const naturalBreak = cursor + innerPageHeightPx
         const preferred = breakPointsPx

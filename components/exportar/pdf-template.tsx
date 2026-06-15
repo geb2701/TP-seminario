@@ -185,7 +185,7 @@ export function PDFExportTemplate({ careers }: { careers: CareerDetail[] }) {
 
       {/* Study plans */}
       {allYears.length > 0 && (
-        <div data-pdf-break="true" style={{ marginBottom: "44px" }}>
+        <div data-pdf-force-page2="true" style={{ marginBottom: "44px" }}>
           <PDFSectionTitle>Plan de estudios por año</PDFSectionTitle>
           {allYears.map((year, yi) => (
             <div key={year} data-pdf-break={yi > 0 ? "true" : undefined} style={{ marginBottom: "20px" }}>
