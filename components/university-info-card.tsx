@@ -1,7 +1,6 @@
-import Link from "next/link"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
-import { MapPin, Globe, Landmark, Users, Star, Building2 } from "lucide-react"
+import { MapPin, Globe, Landmark, Users, Star } from "lucide-react"
 
 type UniversityInfoCardProps = {
   university: {
@@ -23,16 +22,6 @@ export function UniversityInfoCard({ university, careerCount, rating, reviewCoun
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Building2 className="h-5 w-5" />
-          {university.id ? (
-            <Link href={`/universidades/${university.id}`} className="hover:underline">
-              {university.name}
-            </Link>
-          ) : (
-            university.name
-          )}
-        </CardTitle>
         {university.foundedYear && (
           <CardDescription>Fundada en {university.foundedYear}</CardDescription>
         )}
