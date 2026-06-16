@@ -17,33 +17,13 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/
 import { useQuery } from "@tanstack/react-query"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Cell } from "recharts"
 import { useCompareCareers } from "@/hooks/use-compare-careers"
+import { ExportPDFButton, type CareerDetail } from "@/components/exportar"
 
 type CareerOption = {
   id: string
   name: string
   university: { name: string; city: string; province: string }
   area: { id: string; name: string }
-}
-
-type CareerDetail = CareerOption & {
-  durationYears: number
-  degreeTitle: string
-  modality: "PRESENCIAL" | "HIBRIDO" | "ONLINE"
-  studentCount: number
-  description: string | null
-  university: { name: string; city: string; province: string; type: string }
-  area: { name: string }
-  rating: number | null
-  reviewCount: number
-  studyPlans: {
-    id: string
-    year: number
-    subjects: {
-      id: string
-      name: string
-      semester: number | null
-    }[]
-  }[]
 }
 
 const MODALITY_LABEL: Record<string, string> = {
@@ -59,6 +39,8 @@ const CHART_COLORS = [
   "var(--chart-4)",
 ]
 
+// ─── UI chart component ───────────────────────────────────────────────────────
+
 type MetricChartProps = {
   title: string
   data: { name: string; shortName: string; value: number | null }[]
@@ -71,11 +53,7 @@ function MetricBarChart({ title, data, formatter, tickFormatter, domain }: Metri
   const chartConfig = Object.fromEntries(
     data.map((d, i) => [d.shortName, { label: d.name, color: CHART_COLORS[i] }])
   )
-
-  const chartData = data.map((d) => ({
-    name: d.shortName,
-    value: d.value ?? 0,
-  }))
+  const chartData = data.map((d) => ({ name: d.shortName, value: d.value ?? 0 }))
 
   return (
     <Card>
@@ -86,49 +64,21 @@ function MetricBarChart({ title, data, formatter, tickFormatter, domain }: Metri
         <ChartContainer config={chartConfig} className="h-[180px] w-full [aspect-ratio:auto]">
           <BarChart data={chartData} margin={{ top: 4, right: 0, left: 0, bottom: 4 }}>
             <CartesianGrid vertical={false} strokeDasharray="3 3" />
-            <XAxis
-              dataKey="name"
-              tick={{ fontSize: 11 }}
-              tickLine={false}
-              axisLine={false}
-            />
-            <YAxis
-              tickLine={false}
-              axisLine={false}
-              tick={{ fontSize: 11 }}
-              domain={domain}
-              tickFormatter={tickFormatter ?? formatter}
-            />
-            <ChartTooltip
-              content={
-                <ChartTooltipContent
-                  formatter={(value) =>
-                    formatter ? formatter(Number(value)) : String(value)
-                  }
-                />
-              }
-            />
+            <XAxis dataKey="name" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
+            <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 11 }} domain={domain} tickFormatter={tickFormatter ?? formatter} />
+            <ChartTooltip content={<ChartTooltipContent formatter={(value) => formatter ? formatter(Number(value)) : String(value)} />} />
             <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-              {chartData.map((_, i) => (
-                <Cell key={i} fill={CHART_COLORS[i]} />
-              ))}
+              {chartData.map((_, i) => <Cell key={i} fill={CHART_COLORS[i]} />)}
             </Bar>
           </BarChart>
         </ChartContainer>
         <div className="mt-3 space-y-1">
           {data.map((d, i) => (
             <div key={i} className="flex items-center gap-2 text-xs text-muted-foreground">
-              <span
-                className="h-2 w-2 rounded-sm shrink-0"
-                style={{ backgroundColor: CHART_COLORS[i] }}
-              />
+              <span className="h-2 w-2 rounded-sm shrink-0" style={{ backgroundColor: CHART_COLORS[i] }} />
               <span className="truncate">{d.name}</span>
               <span className="ml-auto font-medium text-foreground shrink-0">
-                {d.value !== null
-                  ? formatter
-                    ? formatter(d.value)
-                    : d.value
-                  : "—"}
+                {d.value !== null ? (formatter ? formatter(d.value) : d.value) : "—"}
               </span>
             </div>
           ))}
@@ -138,8 +88,9 @@ function MetricBarChart({ title, data, formatter, tickFormatter, domain }: Metri
   )
 }
 
-const MAX_CAREERS = 4
+// ─── Main page ───────────────────────────────────────────────────────────────
 
+const MAX_CAREERS = 4
 
 export default function ComparePage() {
   const { compareIds, isComparing, canAdd, add, remove: removeFromHook, clear } = useCompareCareers()
@@ -196,44 +147,16 @@ export default function ComparePage() {
     { label: "Área", render: (c) => c.area.name },
     { label: "Título otorgado", render: (c) => c.degreeTitle },
     { label: "Duración", render: (c) => `${c.durationYears} años` },
-    {
-      label: "Modalidad", render: (c) => (
-        <Badge variant="outline">{MODALITY_LABEL[c.modality]}</Badge>
-      ),
-    },
-    {
-      label: "Estudiantes inscritos",
-      render: (c) => c.studentCount.toLocaleString("es-AR"),
-    },
-    {
-      label: "Calificación",
-      render: (c) =>
-        c.rating !== null
-          ? `⭐ ${c.rating} / 5.0 (${c.reviewCount} reseñas)`
-          : "Sin reseñas",
-    },
+    { label: "Modalidad", render: (c) => <Badge variant="outline">{MODALITY_LABEL[c.modality]}</Badge> },
+    { label: "Estudiantes inscritos", render: (c) => c.studentCount.toLocaleString("es-AR") },
+    { label: "Calificación", render: (c) => c.rating !== null ? `⭐ ${c.rating} / 5.0 (${c.reviewCount} reseñas)` : "Sin reseñas" },
   ]
 
-  const shortName = (name: string) =>
-    name.length > 18 ? name.substring(0, 16) + "…" : name
+  const shortName = (name: string) => name.length > 18 ? name.substring(0, 16) + "…" : name
 
-  const studentsData = compared?.map((c) => ({
-    name: c.name,
-    shortName: shortName(c.name),
-    value: c.studentCount,
-  })) ?? []
-
-  const durationData = compared?.map((c) => ({
-    name: c.name,
-    shortName: shortName(c.name),
-    value: c.durationYears,
-  })) ?? []
-
-  const ratingData = compared?.map((c) => ({
-    name: c.name,
-    shortName: shortName(c.name),
-    value: c.rating,
-  })) ?? []
+  const studentsData = compared?.map((c) => ({ name: c.name, shortName: shortName(c.name), value: c.studentCount })) ?? []
+  const durationData = compared?.map((c) => ({ name: c.name, shortName: shortName(c.name), value: c.durationYears })) ?? []
+  const ratingData = compared?.map((c) => ({ name: c.name, shortName: shortName(c.name), value: c.rating })) ?? []
 
   const allYears = useMemo(() => {
     if (!compared) return []
@@ -258,7 +181,8 @@ export default function ComparePage() {
       </section>
 
       {selectedIds.length > 0 && (
-        <div className="flex justify-end">
+        <div className="flex justify-end gap-2">
+          <ExportPDFButton careers={compared} isLoading={isLoading} />
           <Button variant="destructive" onClick={clear} className="shrink-0">
             <Trash2 className="h-4 w-4 mr-2" />
             Limpiar selección
@@ -267,10 +191,7 @@ export default function ComparePage() {
       )}
 
       {selectedIds.length === 0 && (
-        <EmptyState
-          icon={Plus}
-          title="Seleccioná al menos una carrera para comenzar la comparación"
-        />
+        <EmptyState icon={Plus} title="Seleccioná al menos una carrera para comenzar la comparación" />
       )}
 
       {selectedIds.length > 0 && isError && (
@@ -292,95 +213,82 @@ export default function ComparePage() {
               </span>
             </AccordionTrigger>
             <AccordionContent>
-          <div className="space-y-3 pb-4">
-            <div className="grid gap-3 sm:grid-cols-3">
-              <div className="relative sm:col-span-1">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Nombre de carrera o universidad..."
-                  className="pl-8"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-              </div>
-              <Select value={filterUniversity || "todas"} onValueChange={(v) => setFilterUniversity(v === "todas" ? "" : (v ?? ""))}>
-                <SelectTrigger className="w-full px-3">
-                  <span className={cn("flex-1 text-left text-sm truncate", !filterUniversity && "text-muted-foreground")}>
-                    {filterUniversity || "Universidad"}
-                  </span>
-                </SelectTrigger>
-                <SelectContent className="min-w-[260px]">
-                  <SelectItem value="todas">Todas las universidades</SelectItem>
-                  {universities.map((u) => (
-                    <SelectItem key={u} value={u}>{u}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={filterArea || "todas"} onValueChange={(v) => setFilterArea(v === "todas" ? "" : (v ?? ""))}>
-                <SelectTrigger className="w-full px-3">
-                  <span className={cn("flex-1 text-left text-sm truncate", !filterArea && "text-muted-foreground")}>
-                    {filterArea ? (areas.find(a => a.id === filterArea)?.name ?? filterArea) : "Facultad / Área"}
-                  </span>
-                </SelectTrigger>
-                <SelectContent className="min-w-[260px]">
-                  <SelectItem value="todas">Todas las áreas</SelectItem>
-                  {areas.map((a) => (
-                    <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="rounded-md border overflow-hidden">
-              {!allCareers ? (
-                <div className="divide-y">
-                  {Array.from({ length: 4 }).map((_, i) => (
-                    <div key={i} className="flex items-center justify-between px-4 py-3">
-                      <div className="space-y-1.5">
-                        <Skeleton className="h-4 w-48" />
-                        <Skeleton className="h-3 w-32" />
-                      </div>
-                      <Skeleton className="h-8 w-20" />
-                    </div>
-                  ))}
+              <div className="space-y-3 pb-4">
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <div className="relative sm:col-span-1">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Nombre de carrera o universidad..."
+                      className="pl-8"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                  </div>
+                  <Select value={filterUniversity || "todas"} onValueChange={(v) => setFilterUniversity(v === "todas" ? "" : (v ?? ""))}>
+                    <SelectTrigger className="w-full px-3">
+                      <span className={cn("flex-1 text-left text-sm truncate", !filterUniversity && "text-muted-foreground")}>
+                        {filterUniversity || "Universidad"}
+                      </span>
+                    </SelectTrigger>
+                    <SelectContent className="min-w-[260px]">
+                      <SelectItem value="todas">Todas las universidades</SelectItem>
+                      {universities.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <Select value={filterArea || "todas"} onValueChange={(v) => setFilterArea(v === "todas" ? "" : (v ?? ""))}>
+                    <SelectTrigger className="w-full px-3">
+                      <span className={cn("flex-1 text-left text-sm truncate", !filterArea && "text-muted-foreground")}>
+                        {filterArea ? (areas.find(a => a.id === filterArea)?.name ?? filterArea) : "Facultad / Área"}
+                      </span>
+                    </SelectTrigger>
+                    <SelectContent className="min-w-[260px]">
+                      <SelectItem value="todas">Todas las áreas</SelectItem>
+                      {areas.map((a) => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
                 </div>
-              ) : filteredCareers.length === 0 ? (
-                <p className="text-center text-sm text-muted-foreground py-8">
-                  No se encontraron carreras con esos criterios.
-                </p>
-              ) : (
-                <div className="max-h-72 overflow-y-auto divide-y">
-                  {filteredCareers.slice(0, 30).map((career) => (
-                    <div
-                      key={career.id}
-                      className="flex items-center justify-between gap-4 px-4 py-3 hover:bg-muted/40 transition-colors"
-                    >
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium truncate">{career.name}</p>
-                        <p className="text-xs text-muted-foreground truncate">
-                          {career.university.name} · {career.university.city}
-                        </p>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="shrink-0"
-                        onClick={() => add(career.id)}
-                      >
-                        <Plus className="h-3.5 w-3.5 mr-1" />
-                        Agregar
-                      </Button>
+                <div className="rounded-md border overflow-hidden">
+                  {!allCareers ? (
+                    <div className="divide-y">
+                      {Array.from({ length: 4 }).map((_, i) => (
+                        <div key={i} className="flex items-center justify-between px-4 py-3">
+                          <div className="space-y-1.5">
+                            <Skeleton className="h-4 w-48" />
+                            <Skeleton className="h-3 w-32" />
+                          </div>
+                          <Skeleton className="h-8 w-20" />
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                  {filteredCareers.length > 30 && (
-                    <p className="text-center text-xs text-muted-foreground py-2">
-                      Mostrando 30 de {filteredCareers.length} — refiná la búsqueda para ver más
+                  ) : filteredCareers.length === 0 ? (
+                    <p className="text-center text-sm text-muted-foreground py-8">
+                      No se encontraron carreras con esos criterios.
                     </p>
+                  ) : (
+                    <div className="max-h-72 overflow-y-auto divide-y">
+                      {filteredCareers.slice(0, 30).map((career) => (
+                        <div key={career.id} className="flex items-center justify-between gap-4 px-4 py-3 hover:bg-muted/40 transition-colors">
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium truncate">{career.name}</p>
+                            <p className="text-xs text-muted-foreground truncate">
+                              {career.university.name} · {career.university.city}
+                            </p>
+                          </div>
+                          <Button size="sm" variant="outline" className="shrink-0" onClick={() => add(career.id)}>
+                            <Plus className="h-3.5 w-3.5 mr-1" />
+                            Agregar
+                          </Button>
+                        </div>
+                      ))}
+                      {filteredCareers.length > 30 && (
+                        <p className="text-center text-xs text-muted-foreground py-2">
+                          Mostrando 30 de {filteredCareers.length} — refiná la búsqueda para ver más
+                        </p>
+                      )}
+                    </div>
                   )}
                 </div>
-              )}
-            </div>
-          </div>
+              </div>
             </AccordionContent>
           </AccordionItem>
         </Accordion>
