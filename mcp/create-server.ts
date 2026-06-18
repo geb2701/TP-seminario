@@ -1,6 +1,17 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { z } from "zod"
-import { prisma } from "../lib/prisma.js"
+import { prisma } from "@/lib/prisma"
+
+const AREAS_VOCACIONALES = [
+  "Ingeniería y Tecnología",
+  "Ciencias de la Salud",
+  "Ciencias Económicas",
+  "Derecho y Ciencias Sociales",
+  "Humanidades y Artes",
+  "Ciencias Exactas y Naturales",
+  "Arquitectura y Diseño",
+  "Comunicación y Periodismo",
+]
 
 export function createMcpServer() {
   const server = new McpServer({ name: "uniflow-mcp", version: "1.0.0" })
@@ -319,6 +330,128 @@ export function createMcpServer() {
             null, 2
           ),
         }],
+      }
+    }
+  )
+
+  server.registerTool(
+    "estadisticas_orientacion_vocacional",
+    {
+      description: "Devuelve estadísticas agregadas del test de orientación vocacional: total de respuestas, ranking de áreas más elegidas como perfil dominante, puntaje promedio por área y distribución mensual.",
+      inputSchema: {},
+    },
+    async () => {
+      const resultados = await prisma.vocationalResult.findMany({
+        orderBy: { createdAt: "asc" },
+      })
+
+      const total = resultados.length
+
+      if (total === 0) {
+        return {
+          content: [{
+            type: "text",
+            text: `No hay respuestas registradas aún.\n\nÁreas evaluadas por el test: ${AREAS_VOCACIONALES.join(", ")}.`,
+          }],
+        }
+      }
+
+      const conteoTopArea: Record<string, number> = {}
+      const sumScores: Record<string, number> = {}
+      const countScores: Record<string, number> = {}
+      const porMes: Record<string, number> = {}
+
+      for (const r of resultados) {
+        conteoTopArea[r.topArea] = (conteoTopArea[r.topArea] ?? 0) + 1
+
+        const scores = JSON.parse(r.scores) as Record<string, number>
+        for (const [area, score] of Object.entries(scores)) {
+          sumScores[area] = (sumScores[area] ?? 0) + score
+          countScores[area] = (countScores[area] ?? 0) + 1
+        }
+
+        const mes = r.createdAt.toISOString().slice(0, 7)
+        porMes[mes] = (porMes[mes] ?? 0) + 1
+      }
+
+      const rankingAreas = Object.entries(conteoTopArea)
+        .sort(([, a], [, b]) => b - a)
+        .map(([area, cantidad], i) => ({
+          posicion: i + 1,
+          area,
+          cantidad,
+          porcentaje: `${((cantidad / total) * 100).toFixed(1)}%`,
+        }))
+
+      const promediosPorArea = Object.fromEntries(
+        Object.entries(sumScores).map(([area, sum]) => [
+          area,
+          parseFloat((sum / countScores[area]).toFixed(1)),
+        ])
+      )
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Estadísticas basadas en ${total} respuesta${total !== 1 ? "s" : ""} del test de orientación vocacional.\nÁreas evaluadas: ${AREAS_VOCACIONALES.join(", ")}.`,
+          },
+          {
+            type: "text",
+            text: JSON.stringify({
+              total_respuestas: total,
+              ranking_areas_mas_elegidas: rankingAreas,
+              puntaje_promedio_por_area: promediosPorArea,
+              respuestas_por_mes: porMes,
+            }, null, 2),
+          },
+        ],
+      }
+    }
+  )
+
+  server.registerTool(
+    "listar_resultados_vocacionales",
+    {
+      description: "Lista resultados individuales del test de orientación vocacional. Podés filtrar por área dominante y limitar la cantidad de resultados.",
+      inputSchema: {
+        topArea: z.string().optional().describe("Filtrar por área dominante (ej: 'Ingeniería y Tecnología', 'Ciencias de la Salud')"),
+        limite: z.number().int().min(1).max(100).optional().describe("Cantidad máxima de resultados a devolver (por defecto 20)"),
+      },
+    },
+    async ({ topArea, limite }) => {
+      const resultados = await prisma.vocationalResult.findMany({
+        where: {
+          ...(topArea && { topArea: { contains: topArea } }),
+        },
+        orderBy: { createdAt: "desc" },
+        take: limite ?? 20,
+      })
+
+      const resumen = topArea
+        ? `Se encontraron ${resultados.length} resultado${resultados.length !== 1 ? "s" : ""} para el área "${topArea}".`
+        : `Se muestran ${resultados.length} resultado${resultados.length !== 1 ? "s" : ""} (ordenados del más reciente al más antiguo).`
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: `${resumen}\nÁreas disponibles para filtrar: ${AREAS_VOCACIONALES.join(", ")}.`,
+          },
+          {
+            type: "text",
+            text: JSON.stringify(
+              resultados.map((r) => ({
+                id: r.id,
+                persona: r.personName ?? "Anónimo",
+                area_dominante: r.topArea,
+                puntajes: JSON.parse(r.scores) as Record<string, number>,
+                fecha: r.createdAt.toLocaleDateString("es-AR"),
+              })),
+              null, 2
+            ),
+          },
+        ],
       }
     }
   )
