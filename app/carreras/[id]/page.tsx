@@ -19,6 +19,7 @@ import { EmptyState } from "@/components/empty-state"
 import { ErrorState } from "@/components/error-state"
 import { UniversityInfoCard } from "@/components/university-info-card"
 import { StarRating } from "@/components/star-rating"
+import { ReviewForm } from "@/components/review-form"
 import { useCompareCareers } from "@/hooks/use-compare-careers"
 import { useDynamicBreadcrumb } from "@/components/breadcrumb-context"
 
@@ -315,6 +316,8 @@ export default function CarreraDetailPage({
 
         {/* Reseñas de usuarios. Si no hay, se muestra un estado vacio descriptivo */}
         <TabsContent value="resenas" className="mt-6 space-y-4">
+          <ReviewForm postUrl={`careers/${career.id}/reviews`} onSuccess={refetch} />
+
           {career.reviews.length === 0 ? (
             <EmptyState
               icon={Star}
