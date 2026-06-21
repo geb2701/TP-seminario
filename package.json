@@ -9,6 +9,7 @@
     "lint": "next lint",
     "postinstall": "prisma generate",
     "db:seed": "tsx scripts/seed.ts",
+    "db:seed-reviews": "tsx scripts/seed-reviews.ts",
     "db:setup": "tsx scripts/setup-turso.ts"
   },
   "dependencies": {
