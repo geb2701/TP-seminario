@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
   const [careers, universities] = await Promise.all([
     prisma.career.findMany({
       include: { university: { select: { name: true } } },
-      orderBy: { studentCount: "desc" },
+      orderBy: { name: "asc" },
     }),
     prisma.university.findMany({ orderBy: { name: "asc" } }),
   ]);

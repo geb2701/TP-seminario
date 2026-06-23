@@ -37,6 +37,10 @@ next-env.d.ts
 prisma/dev.db
 prisma/dev.db-journal
 
+# scraped data (regenerate with npm run scrape:siu / scrape:siu:transform)
+/data/
+scripts/.recon-tmp/
+
 # claude
 .claude/
 
