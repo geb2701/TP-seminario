@@ -4,15 +4,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Clock, Users, GraduationCap, Star, BookOpen } from "lucide-react"
+import { Clock, GraduationCap, Star, BookOpen } from "lucide-react"
 import { EmptyState } from "@/components/empty-state"
 import { UniversityInfoCard } from "@/components/university-info-card"
 import { StarRating } from "@/components/star-rating"
-import { AREA_EMOJIS } from "./constants"
-
-function normalizeCareerName(name: string): string {
-  return name.normalize("NFC").trim()
-}
+import { AREA_EMOJIS, getCareerAffinity } from "./constants"
 
 type Subject = { id: string; name: string; year: number; semester: number | null }
 
@@ -23,7 +19,6 @@ export type CareerDetailFull = {
   degreeTitle: string
   modality: "PRESENCIAL" | "HIBRIDO" | "ONLINE"
   description: string | null
-  studentCount: number
   rating: number | null
   reviewCount: number
   university: {
@@ -58,8 +53,8 @@ function SkeletonDetail() {
         <Skeleton className="h-7 w-2/3" />
         <Skeleton className="h-5 w-1/3" />
       </div>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, i) => (
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {Array.from({ length: 3 }).map((_, i) => (
           <Card key={i}><CardContent className="pt-6">
             <Skeleton className="h-8 w-12 mb-1" />
             <Skeleton className="h-4 w-24" />
@@ -82,7 +77,7 @@ export function CareerDetailPanel({
 }) {
   if (isLoading || !data) return <SkeletonDetail />
 
-  const affinity = careerScores[normalizeCareerName(data.name)] ?? 0
+  const affinity = getCareerAffinity(careerScores, data.name)
 
   const subjectsByYear = data.studyPlans
     .flatMap((p) => p.subjects)
@@ -120,22 +115,13 @@ export function CareerDetailPanel({
       </section>
 
       {/* Stats grid */}
-      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <Card><CardContent className="pt-5">
           <div className="flex items-center gap-3">
             <Clock className="h-5 w-5 text-muted-foreground shrink-0" />
             <div>
               <p className="text-2xl font-bold">{data.durationYears}</p>
               <p className="text-xs text-muted-foreground">años de duración</p>
-            </div>
-          </div>
-        </CardContent></Card>
-        <Card><CardContent className="pt-5">
-          <div className="flex items-center gap-3">
-            <Users className="h-5 w-5 text-muted-foreground shrink-0" />
-            <div>
-              <p className="text-2xl font-bold">{data.studentCount.toLocaleString("es-AR")}</p>
-              <p className="text-xs text-muted-foreground">estudiantes</p>
             </div>
           </div>
         </CardContent></Card>

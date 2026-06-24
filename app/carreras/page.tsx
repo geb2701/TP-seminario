@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useApiQuery } from "@/lib/api"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select"
 import { CareerCard } from "@/components/career-card"
+import { PaginationControls } from "@/components/pagination-controls"
 
 type University = { id: string; name: string }
 import { cn } from "@/lib/utils"
@@ -30,12 +31,15 @@ type Career = {
   degreeTitle: string
   modality: "PRESENCIAL" | "HIBRIDO" | "ONLINE"
   description: string | null
-  studentCount: number
   university: { id: string; name: string; city: string; province: string }
   area: { id: string; name: string }
   rating: number | null
 }
 
+type CareersResponse = {
+  data: Career[]
+  pagination: { page: number; pageSize: number; total: number; totalPages: number }
+}
 
 export default function CarrerasPage() {
   const { isSaved, save, remove } = useSavedCareers()
@@ -47,19 +51,28 @@ export default function CarrerasPage() {
   const [modality, setModality] = useState("todos")
   const [areaId, setAreaId] = useState("")
   const [universityId, setUniversityId] = useState("")
+  const [page, setPage] = useState(1)
+
+  // Si cambian los filtros, volvemos a la primera página.
+  useEffect(() => {
+    setPage(1)
+  }, [search, modality, areaId, universityId])
 
   const careerParams = new URLSearchParams()
   if (search) careerParams.set("search", search)
   if (modality !== "todos") careerParams.set("modality", modality)
   if (areaId) careerParams.set("areaId", areaId)
   if (universityId) careerParams.set("universityId", universityId)
+  careerParams.set("page", String(page))
 
   // Consulta principal de carreras. Se vuelve a ejecutar cuando cambia
-  // alguno de los filtros (search, modality, areaId).
-  const { data: careers, isLoading, isError, refetch } = useApiQuery<Career[]>(
-    ["careers", search, modality, areaId, universityId],
+  // alguno de los filtros (search, modality, areaId) o la página.
+  const { data: careersResponse, isLoading, isError, refetch } = useApiQuery<CareersResponse>(
+    ["careers", search, modality, areaId, universityId, String(page)],
     `careers?${careerParams.toString()}`
   )
+  const careers = careersResponse?.data
+  const pagination = careersResponse?.pagination
 
   const { data: areas } = useApiQuery<Area[]>(["areas"], "areas")
   const { data: universities } = useApiQuery<University[]>(["universities"], "universities")
@@ -199,6 +212,10 @@ export default function CarrerasPage() {
               />
             ))}
       </section>
+
+      {!isLoading && pagination && (
+        <PaginationControls page={page} totalPages={pagination.totalPages} onPageChange={setPage} />
+      )}
 
       {!isLoading && !isError && careers?.length === 0 && (
         <EmptyState

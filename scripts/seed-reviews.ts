@@ -1,506 +1,270 @@
-/**
- * Seed de reseñas para verificar el ranking por prestigio del test vocacional.
- *
- * Ejecutar: pnpm db:seed-reviews
- *
- * Los ratings están diseñados con contrastes deliberados:
- *   - UBA / UDESA / UTDT → universidades con rating alto (4.5–4.9)
- *   - UNC / UNT / UNR   → universidades con rating bajo (2.8–3.5)
- *
- * Esto hace que al seleccionar "Prestigio" en el test, la reordenación sea
- * claramente visible: carreras de UDESA/UTDT suben aunque tengan menos
- * afinidad vocacional que carreras de UTN o UNC.
- */
-
+// Seed de reseñas curadas para el dataset real (SIU). A diferencia de un seed
+// exhaustivo, esto cubre solo un puñado de universidades muy conocidas y un
+// par de carreras reales por área — suficiente para probar el flujo de
+// reseñas y el ranking por prestigio del test vocacional sin multiplicar el
+// tamaño de la base.
+//
+// Resuelve universidades por `name` exacto (no por `shortCode`, que en el
+// dataset real siempre es null) y carreras por `(universityId, name)` exacto.
+//
+// Safety rail: igual que scripts/import-siu-data.ts — apunta a SQLite local
+// por default; requiere --confirm-prod explícito para escribir en el Turso
+// compartido.
+//
+// Uso: tsx scripts/seed-reviews.ts [--confirm-prod]
 import { PrismaClient } from "../lib/generated/prisma/client";
 import { PrismaLibSql } from "@prisma/adapter-libsql";
 import "dotenv/config";
 
+const LOCAL_DB_URL = "file:./prisma/dev.db";
+
+const confirmProd = process.argv.includes("--confirm-prod");
+const targetUrl = confirmProd ? process.env.TURSO_DATABASE_URL! : LOCAL_DB_URL;
+
+if (confirmProd) {
+  console.log(`--confirm-prod passed: targeting ${targetUrl}`);
+} else {
+  console.log(`Safety default: targeting local SQLite (${LOCAL_DB_URL}). Pass --confirm-prod to write to the shared Turso DB instead.`);
+}
+
 const adapter = new PrismaLibSql({
-  url: process.env.TURSO_DATABASE_URL!,
-  authToken: process.env.TURSO_AUTH_TOKEN,
+  url: targetUrl,
+  authToken: confirmProd ? process.env.TURSO_AUTH_TOKEN : undefined,
 });
 const prisma = new PrismaClient({ adapter });
-
-// ─── Tipos ────────────────────────────────────────────────────────────────────
 
 type Review = { rating: number; content: string; authorName: string };
 
 type CareerReviewSeed = {
-  universityCode: string;
+  universityName: string;
   careerName: string;
   reviews: Review[];
 };
 
 type UniversityReviewSeed = {
-  universityCode: string;
+  universityName: string;
   reviews: Review[];
 };
 
-// ─── Reseñas de carreras ──────────────────────────────────────────────────────
-
-const CAREER_REVIEWS: CareerReviewSeed[] = [
-  // ── UBA (universidad: avg 4.8) ────────────────────────────────────────────
-  {
-    universityCode: "UBA",
-    careerName: "Ingeniería en Computación",
-    // avg carrera: 4.8 → top de ingeniería con prestige activado
-    reviews: [
-      { rating: 5, content: "Formación muy sólida en hardware y software. El nivel de exigencia es alto pero la calidad académica lo justifica. Egresé con ofertas de trabajo en mano.", authorName: "Sebastián R." },
-      { rating: 5, content: "Los docentes son investigadores activos. Accedí a proyectos del CONICET desde tercer año. Muy recomendable para quien quiera hacer ciencia o industria.", authorName: "Lucía F." },
-      { rating: 5, content: "Plan de estudios robusto con mucha matemática y algoritmos. Al principio cuesta, pero después entendés por qué te diferencia en el mercado.", authorName: "Tomás A." },
-      { rating: 4, content: "Excelente carrera, aunque la infraestructura edilicia podría mejorar. El nivel técnico es de primer nivel internacional.", authorName: "Camila V." },
-      { rating: 5, content: "Difícil de cursar y larga, pero el título de la UBA abre todas las puertas en el sector tecnológico.", authorName: "Diego M." },
-    ],
-  },
-  {
-    universityCode: "UBA",
-    careerName: "Medicina",
-    // avg carrera: 4.6
-    reviews: [
-      { rating: 5, content: "La formación clínica en los hospitales universitarios no tiene comparación. Desde tercero ya estás en contacto real con pacientes.", authorName: "Martina B." },
-      { rating: 5, content: "Exigente pero impecable. Los profesores son referentes nacionales en sus especialidades.", authorName: "Lucas P." },
-      { rating: 4, content: "El CBC filtra bastante al principio pero luego la carrera se vuelve apasionante. Muy reconocida en el exterior.", authorName: "Valentina C." },
-      { rating: 5, content: "La mejor medicina pública del país, sin dudas.", authorName: "Rodrigo S." },
-      { rating: 4, content: "Infraestructura mejorable en algunas facultades, pero el cuerpo docente es excelente.", authorName: "Ana G." },
-    ],
-  },
-  {
-    universityCode: "UBA",
-    careerName: "Abogacía",
-    // avg carrera: 4.4
-    reviews: [
-      { rating: 5, content: "La Facultad de Derecho de la UBA tiene un peso simbólico enorme en el mundo jurídico argentino.", authorName: "Florencia D." },
-      { rating: 4, content: "Formación teórica muy sólida. Te prepara para pensar críticamente el derecho, no solo aplicarlo.", authorName: "Matías H." },
-      { rating: 4, content: "La masividad es un reto, pero los mejores profesores son muy accesibles en sus horarios de consulta.", authorName: "Soledad R." },
-      { rating: 5, content: "Salí con una base jurídica muy completa. Muy valorada en estudios de abogados y el sector público.", authorName: "Emilio N." },
-    ],
-  },
-  {
-    universityCode: "UBA",
-    careerName: "Psicología",
-    // avg carrera: 4.0
-    reviews: [
-      { rating: 4, content: "La tradición psicoanalítica de la facultad es muy fuerte. Si te interesa esa corriente, es la mejor del país.", authorName: "Julia M." },
-      { rating: 4, content: "Buen nivel académico pero con poca variedad de orientaciones teóricas. La clínica es el fuerte.", authorName: "Ignacio T." },
-      { rating: 4, content: "El plan de estudios es denso pero la formación es reconocida en toda Latinoamérica.", authorName: "Clara P." },
-      { rating: 4, content: "Muy buena para quien quiere dedicarse a la clínica. Para otras ramas de la psicología puede quedarse corta.", authorName: "Bruno K." },
-    ],
-  },
-  {
-    universityCode: "UBA",
-    careerName: "Contador Público",
-    // avg carrera: 3.4 (debería subir poco con prestige por universidad alta)
-    reviews: [
-      { rating: 4, content: "La carrera cumple, pero se nota que es masiva y algunos cursos son muy teóricos sin aplicación práctica.", authorName: "Agustín L." },
-      { rating: 3, content: "El título está bien visto, pero la cursada puede ser bastante rutinaria. La salida laboral es buena igual.", authorName: "Nadia F." },
-      { rating: 3, content: "Muchos trámites burocráticos. El ritmo de la carrera es lento comparado con otras opciones.", authorName: "Ramiro B." },
-      { rating: 4, content: "La calidad varía mucho según la cátedra que te toca. En general es aceptable.", authorName: "Daniela C." },
-    ],
-  },
-
-  // ── UNLP (universidad: avg 4.3) ───────────────────────────────────────────
-  {
-    universityCode: "UNLP",
-    careerName: "Ingeniería en Sistemas",
-    // avg carrera: 4.4
-    reviews: [
-      { rating: 5, content: "Una de las mejores ingenierías en sistemas del país. Las empresas conocen y valoran el título de la UNLP.", authorName: "Pablo R." },
-      { rating: 4, content: "La carrera tiene un buen equilibrio entre teoría y práctica. Hay muchos convenios con empresas locales.", authorName: "Magalí S." },
-      { rating: 4, content: "Muy buena formación en algoritmos y bases de datos. Te cuesta al principio pero después lo valorás.", authorName: "Nicolás B." },
-      { rating: 5, content: "La comunidad de estudiantes es muy activa. El ambiente de estudio es genial.", authorName: "Carla D." },
-      { rating: 4, content: "Sólida pero larga. El mercado laboral te espera con buenas oportunidades al terminar.", authorName: "Esteban V." },
-    ],
-  },
-  {
-    universityCode: "UNLP",
-    careerName: "Medicina Veterinaria",
-    // avg carrera: 4.5
-    reviews: [
-      { rating: 5, content: "La facultad tiene las mejores instalaciones veterinarias del país. Los hospitales para animales son de primer nivel.", authorName: "Sofía R." },
-      { rating: 4, content: "Muy buena formación en sanidad animal y producción. Muy demandada en el sector agropecuario.", authorName: "Gonzalo P." },
-      { rating: 5, content: "Los docentes son profesionales activos. Hacés prácticas en campo desde segundo año.", authorName: "Luciana M." },
-      { rating: 4, content: "Extensa pero muy completa. La reputación de la UNLP en veterinaria es enorme.", authorName: "Juan C." },
-    ],
-  },
-  {
-    universityCode: "UNLP",
-    careerName: "Arquitectura",
-    // avg carrera: 3.5
-    reviews: [
-      { rating: 4, content: "Buena formación técnica. La facultad tiene una identidad de diseño propia.", authorName: "Mariana F." },
-      { rating: 3, content: "La carga horaria es brutal y el plan de estudios necesita actualización en herramientas digitales.", authorName: "Hernán V." },
-      { rating: 4, content: "Muy valorada en el interior del país. Para trabajar en Buenos Aires preferirían UBA o FADU.", authorName: "Lorena T." },
-      { rating: 3, content: "Infraestructura regular. Le falta modernizar los talleres de diseño.", authorName: "Mauricio A." },
-    ],
-  },
-
-  // ── UNC (universidad: avg 3.8) ────────────────────────────────────────────
-  {
-    universityCode: "UNC",
-    careerName: "Medicina",
-    // avg carrera: 3.8
-    reviews: [
-      { rating: 4, content: "La UNC tiene una tradición médica muy larga, pero el título no tiene el mismo peso nacional que la UBA.", authorName: "Romina L." },
-      { rating: 4, content: "Buena formación clínica en los hospitales de Córdoba. El cuerpo docente es comprometido.", authorName: "Federico O." },
-      { rating: 3, content: "El plan de estudios está desactualizado en algunas áreas. El título es respetable en el interior del país.", authorName: "Verónica S." },
-      { rating: 4, content: "La experiencia en el Hospital Universitario es muy buena. Hay que buscar las cátedras correctas.", authorName: "Ariel M." },
-    ],
-  },
-  {
-    universityCode: "UNC",
-    careerName: "Abogacía",
-    // avg carrera: 3.3
-    reviews: [
-      { rating: 4, content: "Buena base teórica, aunque la formación práctica es menos robusta. Sirve para litigar en Córdoba.", authorName: "Patricia D." },
-      { rating: 3, content: "La masividad hace que la atención individualizada sea difícil de conseguir.", authorName: "Ricardo T." },
-      { rating: 3, content: "El título tiene reconocimiento local, pero para mercados nacionales el peso es menor que UBA o UDESA.", authorName: "Graciela B." },
-      { rating: 3, content: "Cursada aceptable. Le falta más énfasis en práctica jurídica real.", authorName: "Carlos P." },
-    ],
-  },
-  {
-    universityCode: "UNC",
-    careerName: "Ingeniería Industrial",
-    // avg carrera: 2.8 (baja → se hunde con prestige activado)
-    reviews: [
-      { rating: 3, content: "Carrera con buena salida laboral en Córdoba por las industrias locales, pero el prestigio nacional es limitado.", authorName: "Adrián R." },
-      { rating: 3, content: "El nivel varía mucho según el año. Los primeros años son más rigurosos que los últimos.", authorName: "Cecilia F." },
-      { rating: 2, content: "La cursada necesita actualización urgente. Los contenidos de gestión y automatización están desactualizados.", authorName: "Mauricio N." },
-      { rating: 3, content: "Aceptable para trabajar en el sector industrial cordobés, pero difícil de proyectar en el exterior.", authorName: "Teresa V." },
-      { rating: 3, content: "Los profesores son buenos en teoría pero falta más conexión con la industria real.", authorName: "Jorge S." },
-    ],
-  },
-
-  // ── UTN (universidad: avg 3.7) ────────────────────────────────────────────
-  {
-    universityCode: "UTN",
-    careerName: "Ingeniería en Sistemas de Información",
-    // avg carrera: 3.9 (media — neutral con prestige)
-    reviews: [
-      { rating: 4, content: "La UTN-ISI es la carrera con más demanda laboral antes del egreso. Muy orientada a la industria.", authorName: "Lucas B." },
-      { rating: 4, content: "Excelente para conseguir trabajo rápido. Algunos cursos son algo teóricos, pero en general el nivel es bueno.", authorName: "Paola M." },
-      { rating: 4, content: "El título es reconocido en todo el país y en muchas empresas multinacionales.", authorName: "Andrés F." },
-      { rating: 4, content: "Gran comunidad estudiantil. Hay muchas actividades extracurriculares.", authorName: "Julieta C." },
-      { rating: 3, content: "Es buena pero no es una ingeniería de élite. Para quien quiere investigar o ir al exterior, queda corta.", authorName: "Hernán D." },
-    ],
-  },
-  {
-    universityCode: "UTN",
-    careerName: "Ingeniería Electrónica",
-    // avg carrera: 3.2 (baja — se hunde con prestige)
-    reviews: [
-      { rating: 3, content: "La cursada es muy dura pero el título no tiene el mismo reconocimiento que otras ingenierías más modernas.", authorName: "Gabriel T." },
-      { rating: 3, content: "Contenido muy matemático sin suficiente aplicación práctica hasta los últimos años.", authorName: "Soledad B." },
-      { rating: 4, content: "Buena para trabajar en automatización industrial. La salida laboral existe aunque es más estrecha que sistemas.", authorName: "Pablo A." },
-      { rating: 3, content: "Plan de estudios algo antiguo. Necesita más contenido de electrónica digital y sistemas embebidos.", authorName: "Valeria N." },
-      { rating: 3, content: "La reputación de la UTN ayuda, pero la carrera en sí necesita modernización.", authorName: "Marcos R." },
-    ],
-  },
-  {
-    universityCode: "UTN",
-    careerName: "Ingeniería Civil",
-    // avg carrera: 2.6 (muy baja)
-    reviews: [
-      { rating: 3, content: "Plan de estudios desactualizado. Para trabajar en obra pública sirve, pero la formación no es diferencial.", authorName: "Oscar F." },
-      { rating: 3, content: "Los docentes tienen experiencia pero la conexión con el sector privado es escasa.", authorName: "Karina L." },
-      { rating: 2, content: "Las instalaciones para laboratorios son limitadas. Difícil hacer prácticas reales de estructuras.", authorName: "Javier C." },
-      { rating: 3, content: "Aceptable para construir en el interior del país. Para proyectos de envergadura nacional preferís otra universidad.", authorName: "Marcela D." },
-      { rating: 2, content: "La carrera cumple lo mínimo pero no más que eso. Para construcción seria te iría mejor en la UBA.", authorName: "Facundo B." },
-    ],
-  },
-
-  // ── UNR (universidad: avg 3.4) ────────────────────────────────────────────
-  {
-    universityCode: "UNR",
-    careerName: "Medicina",
-    // avg carrera: 3.2
-    reviews: [
-      { rating: 3, content: "Carrera digna pero el peso del título fuera de Santa Fe es limitado. La infraestructura hospitalaria es irregular.", authorName: "Natalia K." },
-      { rating: 3, content: "Cuerpo docente comprometido pero plan de estudios necesita revisión.", authorName: "Emanuel P." },
-      { rating: 4, content: "La experiencia en el Hospital Provincial es positiva. La formación clínica básica está bien cubierta.", authorName: "Silvia M." },
-      { rating: 3, content: "Demasiada teoría en los primeros años. La práctica clínica llega tarde.", authorName: "Rodrigo F." },
-      { rating: 3, content: "Título respetado en la región pero con poco reconocimiento nacional comparado con UBA o UNC.", authorName: "Claudia V." },
-    ],
-  },
-  {
-    universityCode: "UNR",
-    careerName: "Arquitectura",
-    // avg carrera: 2.6
-    reviews: [
-      { rating: 3, content: "La facultad tiene una identidad interesante, pero los recursos son muy limitados.", authorName: "Gustavo R." },
-      { rating: 2, content: "Talleres con equipamiento obsoleto. Para un arquitecto que quiere competir en diseño contemporáneo, hay mejores opciones.", authorName: "Laura C." },
-      { rating: 3, content: "El nivel varía mucho entre cátedras. Hay que saber elegir bien los talleres.", authorName: "Roberto A." },
-      { rating: 2, content: "La conexión con el sector privado y las constructoras es casi nula durante la carrera.", authorName: "Miriam T." },
-      { rating: 3, content: "Aceptable para quedarse en Rosario, pero el prestigio nacional no es comparable con FADU o UNLP.", authorName: "Eduardo S." },
-    ],
-  },
-
-  // ── UDESA (universidad: avg 4.9) ──────────────────────────────────────────
-  {
-    universityCode: "UDESA",
-    careerName: "Administración de Empresas",
-    // avg carrera: 4.9 → debería subir mucho con prestige activado
-    reviews: [
-      { rating: 5, content: "El mejor programa de negocios del país para quien busca el mundo corporativo de primer nivel. Los alumni son una red increíble.", authorName: "Santiago K." },
-      { rating: 5, content: "Profesores que son directivos activos de empresas. Los casos de estudio son de primera. Muy internacional.", authorName: "Jimena L." },
-      { rating: 5, content: "La inversión vale absolutamente. Salí con tres ofertas laborales antes de recibirme.", authorName: "Alejandro M." },
-      { rating: 5, content: "El campus de Victoria es hermoso y el ambiente académico es de nivel mundial.", authorName: "Victoria P." },
-      { rating: 5, content: "La reputación de UDESA en el mundo corporativo argentino no tiene igual entre las privadas.", authorName: "Ignacio F." },
-    ],
-  },
-  {
-    universityCode: "UDESA",
-    careerName: "Economía",
-    // avg carrera: 4.7
-    reviews: [
-      { rating: 5, content: "La carrera más rigurosa en economía del país. Mucha econometría y teoría formal. Para los que van a fondo.", authorName: "Martín A." },
-      { rating: 5, content: "Los profesores son PhDs de universidades americanas y europeas. El nivel académico es extraordinario.", authorName: "Catalina R." },
-      { rating: 4, content: "Excelente para investigación y para trabajar en organismos internacionales.", authorName: "Tomás B." },
-      { rating: 5, content: "El título de Economía de UDESA abre puertas en el mundo financiero que ninguna otra carrera puede.", authorName: "Sofía N." },
-      { rating: 5, content: "Muy pequeña y selectiva, pero por eso mismo el nivel es altísimo.", authorName: "Diego P." },
-    ],
-  },
-  {
-    universityCode: "UDESA",
-    careerName: "Abogacía",
-    // avg carrera: 4.6
-    reviews: [
-      { rating: 5, content: "Orientación al derecho corporativo y arbitraje internacional. Lo que necesitás si querés los grandes estudios de abogados.", authorName: "Florencia T." },
-      { rating: 4, content: "Pequeña, cara, pero con una red de alumni que te coloca en las mejores firmas del país.", authorName: "Emilio D." },
-      { rating: 5, content: "El nivel de inglés que te exigen y la perspectiva internacional es un diferenciador clave.", authorName: "Paula C." },
-      { rating: 5, content: "La mejor combinación entre negocios y derecho en Argentina.", authorName: "Rodrigo M." },
-      { rating: 4, content: "Muy buena pero cara. Hay que evaliar bien el retorno de la inversión.", authorName: "Luciana K." },
-    ],
-  },
-
-  // ── UTDT (universidad: avg 4.8) ───────────────────────────────────────────
-  {
-    universityCode: "UTDT",
-    careerName: "Ingeniería Informática",
-    // avg carrera: 4.9 → debería subir mucho con prestige activado
-    reviews: [
-      { rating: 5, content: "El ambiente de innovación y emprendimiento es único en Argentina. Mis compañeros de cursada están en las mejores empresas tech del mundo.", authorName: "Valentina G." },
-      { rating: 5, content: "Profesores que son CTO y fundadores de startups. Aprendí más sobre la industria real acá que en cualquier otro lado.", authorName: "Nicolás A." },
-      { rating: 5, content: "Red de alumni extraordinaria. Me consiguió trabajo en una empresa en San Francisco antes de recibirme.", authorName: "Mariana E." },
-      { rating: 5, content: "La Di Tella invierte mucho en tecnología de enseñanza. Labs, equipamiento y conectividad de primer nivel.", authorName: "Facundo R." },
-      { rating: 4, content: "Cara, pero el retorno de la inversión es claro si querés el mercado tech internacional.", authorName: "Belén S." },
-    ],
-  },
-  {
-    universityCode: "UTDT",
-    careerName: "Economía Empresarial",
-    // avg carrera: 4.8
-    reviews: [
-      { rating: 5, content: "La combinación de economía, finanzas y negocios en un solo programa es única en el país.", authorName: "Marcos V." },
-      { rating: 5, content: "Los profesores son economistas que trabajan en bancos, fondos de inversión y consultoras de tope.", authorName: "Inés P." },
-      { rating: 5, content: "El rigor cuantitativo es alto, pero la salida laboral lo justifica ampliamente.", authorName: "Tomás C." },
-      { rating: 4, content: "Muy exigente pero aprendés a pensar el mundo de los negocios de una manera muy distinta.", authorName: "Camila L." },
-      { rating: 5, content: "El título de economía de la Di Tella es probablemente el más valorado por el sector financiero privado.", authorName: "Julián F." },
-    ],
-  },
-
-  // ── UCA (universidad: avg 3.6) ────────────────────────────────────────────
-  {
-    universityCode: "UCA",
-    careerName: "Derecho",
-    // avg carrera: 3.8
-    reviews: [
-      { rating: 4, content: "Buena formación en valores y derecho natural. Para quien quiere derecho con ética profesional sólida.", authorName: "Sebastián P." },
-      { rating: 4, content: "El ambiente es bueno y los profesores tienen experiencia en el Poder Judicial.", authorName: "Andrea F." },
-      { rating: 3, content: "La orientación religiosa de la institución puede ser un limitante para algunos temas jurídicos modernos.", authorName: "Leandro M." },
-      { rating: 4, content: "Título respetado en el sector privado, especialmente en estudios con perfil conservador.", authorName: "Patricia R." },
-      { rating: 4, content: "La red de alumni de la UCA en el sector jurídico privado es buena.", authorName: "Carlos B." },
-    ],
-  },
-  {
-    universityCode: "UCA",
-    careerName: "Comunicación Social",
-    // avg carrera: 3.3
-    reviews: [
-      { rating: 3, content: "Carrera correcta pero con orientación muy tradicional. Le falta adaptarse a los medios digitales actuales.", authorName: "Melisa T." },
-      { rating: 4, content: "Buen nivel de redacción y comunicación institucional. Las materias optativas son lo mejor de la carrera.", authorName: "Esteban K." },
-      { rating: 3, content: "El foco está demasiado en medios gráficos y TV. El mundo del contenido digital está subrepresentado.", authorName: "Florencia A." },
-      { rating: 3, content: "Aceptable, pero hay mejores opciones para comunicación en Argentina si no te importa el perfil católico.", authorName: "Gustavo R." },
-    ],
-  },
-
-  // ── UNT (universidad: avg 2.7) ────────────────────────────────────────────
-  {
-    universityCode: "UNT",
-    careerName: "Ingeniería Agronómica",
-    // avg carrera: 2.4 (muy baja → se hunde con prestige)
-    reviews: [
-      { rating: 3, content: "La carrera tiene sentido para trabajar en el NOA pero fuera de la región el título tiene poco reconocimiento.", authorName: "Rubén C." },
-      { rating: 2, content: "Infraestructura de laboratorios muy deficiente. Las prácticas de campo son escasas y poco planificadas.", authorName: "Eliana M." },
-      { rating: 2, content: "El plan de estudios no se actualiza hace años. Los cultivos que estudian no siempre reflejan la producción actual.", authorName: "Aldo V." },
-      { rating: 3, content: "Sirve para insertarte en el sector azucarero tucumano, pero no mucho más allá.", authorName: "Mirta F." },
-      { rating: 2, content: "Para agronomía hay opciones mucho mejores en el país como la UNLP o la UBA.", authorName: "Hugo T." },
-    ],
-  },
-  {
-    universityCode: "UNT",
-    careerName: "Odontología",
-    // avg carrera: 2.8
-    reviews: [
-      { rating: 3, content: "Las clínicas tienen equipamiento básico pero no de punta. La formación práctica es aceptable.", authorName: "Beatriz L." },
-      { rating: 3, content: "El título sirve para ejercer en el NOA. Para especializarte o ir al exterior necesitás hacer posgrados.", authorName: "Ricardo A." },
-      { rating: 2, content: "La gestión académica tiene muchos problemas. Los turnos en clínica son escasos y hay mucha espera.", authorName: "Norma P." },
-      { rating: 3, content: "Correcta para lo que ofrece. No es de élite pero cumple su función.", authorName: "Alfredo S." },
-    ],
-  },
-
-  // ── UNMDP (universidad: avg 4.1) ─────────────────────────────────────────
-  {
-    universityCode: "UNMDP",
-    careerName: "Biología Marina",
-    // avg carrera: 4.7 (alta carrera, universidad media — interesante con prestige parcial)
-    reviews: [
-      { rating: 5, content: "No existe otra carrera igual en el país con este nivel de especialización en el Atlántico Sur. El CONICET está a la vuelta.", authorName: "Florencia V." },
-      { rating: 5, content: "Los docentes son investigadores activos del INIDEP y el IIMYC. Aprendés de gente que hace ciencia real.", authorName: "Matías C." },
-      { rating: 5, content: "La especialización y la rareza del título hacen que seas muy valorado en el mundo académico y de conservación marina.", authorName: "Paola R." },
-      { rating: 4, content: "La carrera es pequeña y eso es una ventaja: los profesores te conocen y el seguimiento es personalizado.", authorName: "Hernán B." },
-      { rating: 4, content: "Para quien quiere investigación marina es la única opción real en Argentina. La conectividad con institutos internacionales es muy buena.", authorName: "Carolina N." },
-    ],
-  },
-  {
-    universityCode: "UNMDP",
-    careerName: "Licenciatura en Turismo",
-    // avg carrera: 3.8
-    reviews: [
-      { rating: 4, content: "Mar del Plata es un laboratorio natural para el turismo. La carrera saca partido de eso con buenas prácticas en temporada.", authorName: "Cintia M." },
-      { rating: 4, content: "Buena formación en turismo costero y de naturaleza. Para hotelería de lujo o turismo internacional queda corta.", authorName: "Leandro P." },
-      { rating: 4, content: "Los convenios con municipios y cámaras de turismo de la costa son un diferenciador interesante.", authorName: "Rosario F." },
-      { rating: 3, content: "La carrera cumple pero el perfil del egresado es bastante local. Difícil proyectarse fuera de la costa bonaerense.", authorName: "Martín A." },
-    ],
-  },
-];
-
 // ─── Reseñas de universidades ─────────────────────────────────────────────────
+// 8 universidades muy reconocidas, mezclando públicas y privadas. Rating
+// promedio deliberadamente distinto entre ellas (todas en rango positivo,
+// 3.8-4.9) para que elegir "Prestigio académico" en el test produzca un
+// reordenamiento visible, sin sugerir que ninguna institución real es mala.
 
 const UNIVERSITY_REVIEWS: UniversityReviewSeed[] = [
   {
-    universityCode: "UBA",
-    // avg universidad: 4.8 → top prestige público
+    universityName: "Universidad de Buenos Aires",
+    // avg ≈ 4.7
     reviews: [
-      { rating: 5, content: "La institución más prestigiosa del país, sin discusión. El título de la UBA abre puertas en todo el mundo.", authorName: "Ana G." },
-      { rating: 5, content: "La diversidad de carreras, la gratuidad y el nivel académico la hacen única en América Latina.", authorName: "Roberto M." },
-      { rating: 5, content: "Una institución que ha formado presidentes, premios Nobel y referentes de todas las disciplinas.", authorName: "Graciela S." },
-      { rating: 4, content: "El prestigio es indiscutible pero la burocracia administrativa puede ser agotadora.", authorName: "Carlos D." },
-      { rating: 5, content: "La excelencia académica de la UBA es consistente a lo largo del tiempo. Un valor seguro para cualquier carrera.", authorName: "Sandra V." },
+      { rating: 5, content: "El prestigio de la UBA abre puertas en cualquier ámbito laboral. La exigencia académica es real, pero vale la pena.", authorName: "Martina G." },
+      { rating: 5, content: "Docentes de primer nivel, muchos activos en investigación. El CBC filtra bastante pero después la experiencia es excelente.", authorName: "Lucas R." },
+      { rating: 4, content: "La infraestructura varía mucho según la facultad, pero la formación académica siempre es sólida.", authorName: "Camila F." },
+      { rating: 5, content: "Estudiar en la UBA te conecta con gente de todo el país. La diversidad de perspectivas enriquece muchísimo el cursado.", authorName: "Tomás A." },
+      { rating: 5, content: "Pública, gratuita y de nivel internacional. No hay mucho más para pedir.", authorName: "Valentina S." },
+      { rating: 4, content: "Los trámites administrativos pueden ser lentos, pero el nivel de los profesores compensa cualquier demora.", authorName: "Ignacio P." },
+      { rating: 4, content: "Masiva, lo que tiene sus pros y sus contras. Si te organizás bien, sacás el máximo provecho.", authorName: "Sofía M." },
     ],
   },
   {
-    universityCode: "UNLP",
-    // avg universidad: 4.3
+    universityName: "Instituto Tecnológico de Buenos Aires",
+    // avg ≈ 4.8
     reviews: [
-      { rating: 4, content: "Una de las universidades con más tradición del país. El ambiente universitario de La Plata es incomparable.", authorName: "Oscar T." },
-      { rating: 5, content: "La UNLP tiene una vida estudiantil muy rica. Las organizaciones estudiantiles son muy activas.", authorName: "Rosana M." },
-      { rating: 4, content: "El nivel académico es muy sólido, especialmente en veterinaria, sistemas y derecho.", authorName: "Ignacio B." },
-      { rating: 4, content: "Buena infraestructura y docentes comprometidos. La ciudad universitaria es una experiencia única.", authorName: "Nadia R." },
-      { rating: 4, content: "Reconocida a nivel nacional e internacional. El título de la UNLP tiene peso en casi todas las disciplinas.", authorName: "Leandro F." },
+      { rating: 5, content: "El ITBA tiene una relación muy fuerte con la industria. Hice una pasantía desde tercer año gracias a contactos de la facu.", authorName: "Federico L." },
+      { rating: 5, content: "Exigente pero con un nivel de seguimiento docente que no encontré en otras universidades. Grupos chicos, mucho contacto directo.", authorName: "Julieta N." },
+      { rating: 5, content: "La currícula está muy actualizada, sobre todo en las áreas de tecnología. Egresás con herramientas que el mercado pide hoy.", authorName: "Bruno T." },
+      { rating: 4, content: "El costo es alto, pero hay becas y el retorno en salida laboral lo justifica bastante rápido.", authorName: "Agustina V." },
+      { rating: 5, content: "El networking con egresados es un plus enorme. Muchos profesores son también referentes de la industria.", authorName: "Joaquín B." },
     ],
   },
   {
-    universityCode: "UNC",
-    // avg universidad: 3.8
+    universityName: "Universidad Torcuato Di Tella",
+    // avg ≈ 4.9
     reviews: [
-      { rating: 4, content: "La más antigua de Argentina y con una historia muy rica. La Reforma del 18 salió de acá.", authorName: "Ernesto V." },
-      { rating: 4, content: "Muy buena para quedarse en Córdoba. Para proyectarse nacionalmente hay que complementar con posgrados en otro lado.", authorName: "Miriam P." },
-      { rating: 4, content: "La vida universitaria es excelente. La ciudad y la universidad van de la mano.", authorName: "Santiago K." },
-      { rating: 3, content: "La gestión administrativa deja mucho que desear. El nivel académico varía bastante entre facultades.", authorName: "Alejandra T." },
+      { rating: 5, content: "Grupos reducidos, profesores con doctorados en universidades top del mundo y una formación muy rigurosa en lo cuantitativo.", authorName: "Manuel C." },
+      { rating: 5, content: "La calidad del cuerpo docente es excepcional. Se nota el nivel de investigación que hay detrás de cada cátedra.", authorName: "Catalina H." },
+      { rating: 5, content: "Es cara, pero la inversión se siente justificada por la salida laboral y el prestigio del título en el ámbito privado.", authorName: "Nicolás D." },
+      { rating: 4, content: "El campus es chico comparado con universidades públicas, pero la cercanía con los docentes compensa de sobra.", authorName: "Renata O." },
     ],
   },
   {
-    universityCode: "UTN",
-    // avg universidad: 3.7
+    universityName: "Universidad de San Andrés",
+    // avg ≈ 4.8
     reviews: [
-      { rating: 4, content: "La UTN tiene presencia en todo el país y sus títulos de ingeniería son reconocidos por la industria.", authorName: "Hernán D." },
-      { rating: 4, content: "Muy orientada al mercado laboral. Desde segundo año hay empresas que te ofrecen pasantías.", authorName: "Laura T." },
-      { rating: 3, content: "La calidad varía mucho entre las sedes regionales. Hay que investigar bien la sede antes de inscribirse.", authorName: "Mario C." },
-      { rating: 4, content: "Para ingeniería aplicada a la industria, la UTN es una opción sólida y accesible.", authorName: "Gloria P." },
+      { rating: 5, content: "La formación interdisciplinaria es el gran diferencial. Te exigen pensar críticamente desde el primer cuatrimestre.", authorName: "Pedro I." },
+      { rating: 5, content: "Profesores accesibles, clases de pocos alumnos y una comunidad académica muy comprometida con la calidad educativa.", authorName: "Lola E." },
+      { rating: 4, content: "Es una burbuja en términos de costo, pero el nivel de discusión en clase no lo encontré en ningún otro lado.", authorName: "Simón W." },
+      { rating: 5, content: "Excelente para quien busca una experiencia universitaria con mucho contacto humano y rigor académico.", authorName: "Abril Q." },
     ],
   },
   {
-    universityCode: "UNR",
-    // avg universidad: 3.4
+    universityName: "Pontificia Universidad Católica Argentina Santa María de los Buenos Aires",
+    // avg ≈ 4.2
     reviews: [
-      { rating: 3, content: "Buena universidad para estudiar en Rosario, pero el reconocimiento nacional es menor al de la UNLP o la UBA.", authorName: "Sergio M." },
-      { rating: 4, content: "El ambiente universitario en Rosario es agradable. La ciudad y la universidad tienen buena sinergia.", authorName: "Carolina F." },
-      { rating: 3, content: "La gestión tiene muchos problemas internos que afectan la cursada. Hay mucha burocracia.", authorName: "Guillermo T." },
-      { rating: 3, content: "Para algunas carreras como medicina la infraestructura queda corta.", authorName: "Beatriz A." },
+      { rating: 4, content: "Buen nivel académico y una formación que también pone foco en lo humano, no solo lo técnico.", authorName: "Mariano K." },
+      { rating: 4, content: "Las instalaciones de Puerto Madero son muy buenas. El cuerpo docente es sólido en general.", authorName: "Carla Z." },
+      { rating: 5, content: "Me sentí muy acompañado durante toda la carrera. Hay mucho seguimiento académico individual.", authorName: "Esteban Y." },
+      { rating: 4, content: "El arancel es elevado pero hay buen sistema de becas. La salida laboral en mi área fue rápida.", authorName: "Milagros J." },
     ],
   },
   {
-    universityCode: "UDESA",
-    // avg universidad: 4.9 → top prestige privado
+    universityName: "Universidad Tecnológica Nacional",
+    // avg ≈ 4.0
     reviews: [
-      { rating: 5, content: "La universidad privada de mayor prestigio académico del país en el área de negocios y ciencias sociales.", authorName: "Federico L." },
-      { rating: 5, content: "El campus, los profesores y la red de alumni son de nivel internacional. Vale cada peso de la inversión.", authorName: "Valeria M." },
-      { rating: 5, content: "La reputación de UDESA en el sector corporativo es extraordinaria. El 'brand' abre puertas que otras universidades no pueden.", authorName: "Pablo R." },
-      { rating: 5, content: "Pequeña, selectiva y con un nivel académico que no baja jamás. La mejor decisión que tomé en mi vida.", authorName: "Jimena S." },
-      { rating: 5, content: "Los eventos, conferencias y conexiones que genera UDESA no tienen precio.", authorName: "Alejandro B." },
+      { rating: 4, content: "Muy orientada a la práctica, ideal si querés salir con herramientas concretas para trabajar en la industria.", authorName: "Diego U." },
+      { rating: 4, content: "Pública y con sedes en todo el país, lo que es un golazo si no podés mudarte a una gran ciudad.", authorName: "Florencia X." },
+      { rating: 3, content: "El ritmo es exigente y las cursadas son largas, pero el título tiene buena reputación en el sector industrial.", authorName: "Hernán V." },
+      { rating: 4, content: "Buenos laboratorios y convenios con empresas para prácticas profesionales. Se nota el enfoque aplicado.", authorName: "Romina T." },
+      { rating: 4, content: "Algunas sedes están mejor equipadas que otras, pero en general la formación técnica es muy completa.", authorName: "Alejo S." },
     ],
   },
   {
-    universityCode: "UTDT",
-    // avg universidad: 4.8 → top prestige privado (empata con UDESA)
+    universityName: "Universidad Argentina de la Empresa",
+    // avg ≈ 3.8
     reviews: [
-      { rating: 5, content: "La Di Tella es sinónimo de excelencia e innovación. El mejor ambiente para quienes quieren emprender o investigar.", authorName: "Nicolás V." },
-      { rating: 5, content: "Profesores de altísimo nivel académico. La mayoría tiene doctorados de las mejores universidades del mundo.", authorName: "Lucia F." },
-      { rating: 5, content: "La conexión con el ecosistema de startups y el mercado internacional es un activo enorme.", authorName: "Tomás A." },
-      { rating: 4, content: "Cara pero justificada. El retorno de la inversión en términos de red de contactos y salario inicial es notable.", authorName: "Camila R." },
-      { rating: 5, content: "Una institución que combina rigor académico con apertura al mundo real. No hay otra igual en Argentina.", authorName: "Martín P." },
+      { rating: 4, content: "Buena relación con el mundo corporativo, muchas charlas con egresados que ya están trabajando en empresas grandes.", authorName: "Brenda R." },
+      { rating: 4, content: "Las carreras de diseño y negocios tienen muy buen nivel y orientación práctica.", authorName: "Gastón Ñ." },
+      { rating: 3, content: "Es una universidad masiva dentro de lo privado, así que el contacto con los profesores varía según la materia.", authorName: "Paula M." },
+      { rating: 4, content: "Buena infraestructura y horarios flexibles, ideal para compatibilizar con un trabajo.", authorName: "Cristian L." },
     ],
   },
   {
-    universityCode: "UCA",
-    // avg universidad: 3.5
+    universityName: "Universidad Nacional de Córdoba",
+    // avg ≈ 3.9
     reviews: [
-      { rating: 4, content: "Universidad con buena formación en humanidades y derecho. El entorno es tranquilo y organizado.", authorName: "Patricia H." },
-      { rating: 3, content: "El perfil religioso de la institución puede no adaptarse a todos. Académicamente es correcta pero no excepcional.", authorName: "Diego C." },
-      { rating: 4, content: "Buena para carreras como comunicación o derecho con orientación conservadora.", authorName: "Laura M." },
-      { rating: 3, content: "El costo no se justifica con el nivel académico cuando lo comparás con otras privadas como UDESA o UTDT.", authorName: "Norberto F." },
-    ],
-  },
-  {
-    universityCode: "UNT",
-    // avg universidad: 2.7 → más baja del seed
-    reviews: [
-      { rating: 3, content: "La universidad tiene historia en el NOA pero los recursos institucionales son muy limitados.", authorName: "Beatriz C." },
-      { rating: 2, content: "La infraestructura es deficiente y la gestión académica es caótica. Hay un problema sistémico de recursos.", authorName: "Roberto L." },
-      { rating: 3, content: "Para quien no puede moverse de Tucumán, es la opción lógica. Pero el reconocimiento nacional es bajo.", authorName: "Silvia M." },
-      { rating: 3, content: "Algunos docentes son excelentes pero el sistema institucional los limita.", authorName: "Alfredo V." },
-      { rating: 2, content: "Mucha burocracia y poca inversión en modernización. El sector privado no valora mucho el título fuera de la región.", authorName: "Graciela P." },
-    ],
-  },
-  {
-    universityCode: "UNMDP",
-    // avg universidad: 4.1
-    reviews: [
-      { rating: 4, content: "Muy buena universidad para Mar del Plata y la región costera. Sus carreras de ciencias naturales son de primer nivel.", authorName: "Cecilia R." },
-      { rating: 4, content: "El vínculo con el CONICET y los centros de investigación de la ciudad es un activo enorme.", authorName: "Horacio B." },
-      { rating: 5, content: "Para Biología Marina y ciencias del mar es la mejor universidad del país, sin discusión posible.", authorName: "Fernanda T." },
-      { rating: 4, content: "La ciudad universitaria es excelente y el ambiente estudiantil es muy cálido.", authorName: "Eduardo A." },
-      { rating: 3, content: "Muy buena para carreras específicas pero limitada en oferta si querés algo más general.", authorName: "Gladys M." },
+      { rating: 4, content: "Tradición académica enorme, sobre todo en carreras de ciencias y humanidades. Muy buena vida universitaria en general.", authorName: "Yamila K." },
+      { rating: 4, content: "Pública y de gran nivel, aunque la masividad hace que en los primeros años cueste el seguimiento personalizado.", authorName: "Franco H." },
+      { rating: 3, content: "Los trámites administrativos pueden demorar, pero el cuerpo docente en general es muy bueno.", authorName: "Daniela G." },
+      { rating: 4, content: "Córdoba como ciudad universitaria suma mucho a la experiencia, más allá de la carrera elegida.", authorName: "Matías F." },
     ],
   },
 ];
 
-// ─── Mapeo código → nombre completo ──────────────────────────────────────────
-// shortCode es nullable en la DB; usamos el nombre completo como clave robusta.
+// ─── Reseñas de carreras ───────────────────────────────────────────────────────
+// 2 carreras reales por área (Ciencias Aplicadas, Básicas, de la Salud,
+// Humanas, Sociales), todas confirmadas presentes en data/siu-careers.json en
+// estas universidades exactas. "Sin Rama" (catch-all sin clasificar) se deja
+// afuera a propósito — no tiene carreras representativas para este propósito.
 
-const CODE_TO_NAME: Record<string, string> = {
-  UBA:   "Universidad de Buenos Aires",
-  UNLP:  "Universidad Nacional de La Plata",
-  UNC:   "Universidad Nacional de Córdoba",
-  UTN:   "Universidad Tecnológica Nacional",
-  UNR:   "Universidad Nacional de Rosario",
-  UDESA: "Universidad de San Andrés",
-  UTDT:  "Universidad Torcuato Di Tella",
-  UCA:   "Pontificia Universidad Católica Argentina",
-  UNT:   "Universidad Nacional de Tucumán",
-  UNMDP: "Universidad Nacional de Mar del Plata",
-};
+const CAREER_REVIEWS: CareerReviewSeed[] = [
+  // ── Ciencias Aplicadas ──────────────────────────────────────────────────────
+  {
+    universityName: "Universidad Tecnológica Nacional",
+    careerName: "Ingeniero Civil",
+    // avg ≈ 3.6
+    reviews: [
+      { rating: 4, content: "Carrera muy completa en estructuras y obras. El nivel de exigencia matemática es alto desde el primer año.", authorName: "Walter D." },
+      { rating: 3, content: "Es larga y demandante, pero la salida laboral en construcción e infraestructura es muy buena.", authorName: "Noelia B." },
+      { rating: 4, content: "Buenos laboratorios de materiales y prácticas reales en obra. Se nota el perfil aplicado de la UTN.", authorName: "Ezequiel R." },
+      { rating: 3, content: "Cursada pesada combinada con trabajo no es fácil, pero es la realidad de la mayoría de mis compañeros.", authorName: "Ailén C." },
+    ],
+  },
+  {
+    universityName: "Instituto Tecnológico de Buenos Aires",
+    careerName: "Ingeniero/a Civil",
+    // avg ≈ 4.8
+    reviews: [
+      { rating: 5, content: "El enfoque en gestión de proyectos junto con lo estructural te deja muy bien parado para liderar obras grandes.", authorName: "Santiago M." },
+      { rating: 5, content: "Profesores que además ejercen en estudios de ingeniería reconocidos. La currícula está muy conectada con la práctica real.", authorName: "Constanza P." },
+      { rating: 5, content: "Salí con varias ofertas de trabajo antes de graduarme. El nombre del ITBA pesa mucho en las entrevistas.", authorName: "Tobías N." },
+      { rating: 4, content: "Exigente en matemática y física, pero el acompañamiento docente hace que sea muy llevadero.", authorName: "Delfina A." },
+    ],
+  },
+
+  // ── Ciencias Básicas ────────────────────────────────────────────────────────
+  {
+    universityName: "Universidad de Buenos Aires",
+    careerName: "Licenciado en Ciencias Biológicas",
+    // avg ≈ 4.6
+    reviews: [
+      { rating: 5, content: "Acceso a laboratorios de investigación de nivel internacional desde los primeros años. Una experiencia formativa enorme.", authorName: "Guadalupe S." },
+      { rating: 5, content: "Docentes que son referentes en sus campos, muchos vinculados al CONICET. Se aprende ciencia de verdad, no solo de los libros.", authorName: "Iván T." },
+      { rating: 4, content: "Es una carrera larga y con mucha carga horaria de prácticas, pero la formación es excelente.", authorName: "Ornella V." },
+      { rating: 5, content: "Para quien quiere dedicarse a investigación, es de las mejores opciones del país sin dudas.", authorName: "Maximiliano L." },
+    ],
+  },
+  {
+    universityName: "Universidad Nacional de Córdoba",
+    careerName: "Licenciado/a en Química",
+    // avg ≈ 3.8
+    reviews: [
+      { rating: 4, content: "Buen nivel en química analítica y orgánica. Los laboratorios podrían estar mejor equipados, pero se aprende bien.", authorName: "Brisa O." },
+      { rating: 4, content: "La planta docente tiene mucha experiencia. La carrera prepara bien tanto para industria como para investigación.", authorName: "Leandro G." },
+      { rating: 3, content: "Es exigente y algo burocrática para conseguir turnos de laboratorio, pero el contenido vale la pena.", authorName: "Yésica F." },
+    ],
+  },
+
+  // ── Ciencias de la Salud ────────────────────────────────────────────────────
+  {
+    universityName: "Universidad de Buenos Aires",
+    careerName: "Licenciado en Enfermería",
+    // avg ≈ 4.5
+    reviews: [
+      { rating: 5, content: "La práctica hospitalaria empieza temprano y es muy completa. Salís con experiencia clínica real.", authorName: "Rocío M." },
+      { rating: 4, content: "Carrera exigente en lo físico y emocional, pero la formación humana que te da no la encontrás en cualquier lado.", authorName: "Cristian A." },
+      { rating: 5, content: "Docentes con mucha trayectoria hospitalaria. El título de la UBA es muy bien valorado en el sistema de salud.", authorName: "Lourdes P." },
+      { rating: 4, content: "Buena combinación de teoría y práctica, aunque la cursada en hospitales públicos puede ser caótica a veces.", authorName: "Maximiliano R." },
+    ],
+  },
+  {
+    universityName: "Pontificia Universidad Católica Argentina Santa María de los Buenos Aires",
+    careerName: "Médico",
+    // avg ≈ 4.7
+    reviews: [
+      { rating: 5, content: "Formación clínica muy ordenada, con rotaciones en hospitales de buen nivel desde los primeros años de práctica.", authorName: "Eugenia C." },
+      { rating: 5, content: "El cuerpo docente combina investigación y práctica clínica activa. Se nota el nivel en cada materia.", authorName: "Fernando D." },
+      { rating: 4, content: "Es una carrera larga y costosa, pero el acompañamiento académico es constante durante todo el trayecto.", authorName: "Antonella H." },
+      { rating: 5, content: "Salí muy bien preparado para residencias médicas competitivas. El nombre de la facultad ayuda en las entrevistas.", authorName: "Joaquín B." },
+    ],
+  },
+
+  // ── Ciencias Humanas ────────────────────────────────────────────────────────
+  {
+    universityName: "Universidad de Buenos Aires",
+    careerName: "Licenciado en Psicología",
+    // avg ≈ 4.6
+    reviews: [
+      { rating: 5, content: "La tradición psicoanalítica de la facultad es muy fuerte y reconocida en toda Latinoamérica.", authorName: "Julia M." },
+      { rating: 4, content: "Buen nivel académico, aunque hay poca variedad de corrientes teóricas más allá del psicoanálisis.", authorName: "Ignacio T." },
+      { rating: 5, content: "El plan de estudios es denso pero muy completo. Las prácticas clínicas finales son una experiencia clave.", authorName: "Clara P." },
+      { rating: 4, content: "Masiva como toda carrera de la UBA, pero los docentes de cátedra suelen ser muy buenos.", authorName: "Bruno K." },
+    ],
+  },
+  {
+    universityName: "Universidad de San Andrés",
+    careerName: "Licenciado en Humanidades",
+    // avg ≈ 4.4
+    reviews: [
+      { rating: 5, content: "La currícula interdisciplinaria entre filosofía, historia y letras es un diferencial enorme frente a otras universidades.", authorName: "Olivia R." },
+      { rating: 4, content: "Grupos chicos que permiten un nivel de debate en clase muy superior al de carreras masivas.", authorName: "Tomás F." },
+      { rating: 4, content: "Es costosa, pero el acompañamiento docente y la calidad de las lecturas asignadas son excelentes.", authorName: "Valeria N." },
+    ],
+  },
+
+  // ── Ciencias Sociales ───────────────────────────────────────────────────────
+  {
+    universityName: "Universidad de Buenos Aires",
+    careerName: "Abogado",
+    // avg ≈ 4.6
+    reviews: [
+      { rating: 5, content: "La Facultad de Derecho de la UBA tiene un peso simbólico enorme en el mundo jurídico argentino.", authorName: "Florencia D." },
+      { rating: 4, content: "Formación teórica muy sólida que te prepara para pensar críticamente el derecho, no solo aplicarlo.", authorName: "Matías H." },
+      { rating: 5, content: "Salí con una base jurídica muy completa, muy valorada tanto en estudios privados como en el sector público.", authorName: "Emilio Ñ." },
+      { rating: 4, content: "La masividad es un desafío real, pero los mejores profesores son muy accesibles en sus horarios de consulta.", authorName: "Soledad R." },
+    ],
+  },
+  {
+    universityName: "Universidad Torcuato Di Tella",
+    careerName: "Licenciado/a en Administración de Empresas",
+    // avg ≈ 4.9
+    reviews: [
+      { rating: 5, content: "Formación muy fuerte en finanzas y estrategia, con docentes que combinan academia con experiencia real en empresas.", authorName: "Bautista L." },
+      { rating: 5, content: "El networking con egresados que ya ocupan puestos gerenciales es un activo enorme para el primer empleo.", authorName: "Ariadna S." },
+      { rating: 5, content: "Grupos reducidos y mucho trabajo en casos reales. Se nota la diferencia frente a programas más masivos.", authorName: "Felipe V." },
+      { rating: 4, content: "Es de las más caras del país, pero la salida laboral en consultoría y finanzas justifica la inversión.", authorName: "Mía Z." },
+    ],
+  },
+];
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
@@ -509,99 +273,52 @@ async function main() {
   await prisma.careerReview.deleteMany();
   await prisma.universityReview.deleteMany();
 
-  // Fetch all universities indexed by name
-  const allUniversities = await prisma.university.findMany({
-    select: { id: true, name: true },
-  });
-  const uniByCode = new Map(
-    allUniversities.map((u) => {
-      const code = Object.entries(CODE_TO_NAME).find(([, name]) => name === u.name)?.[0];
-      return [code, u] as [string | undefined, typeof u];
-    }).filter(([code]) => code !== undefined) as [string, typeof allUniversities[0]][]
-  );
+  const allUniversities = await prisma.university.findMany({ select: { id: true, name: true } });
+  const uniByName = new Map(allUniversities.map((u) => [u.name, u]));
 
-  // Fetch all careers with their university name
   const allCareers = await prisma.career.findMany({
-    select: { id: true, name: true, university: { select: { name: true } } },
+    select: { id: true, name: true, universityId: true },
   });
 
-  // ── Career reviews ────────────────────────────────────────────────────────
-
-  console.log("\nCreando reseñas de carreras...");
-  let careerReviewCount = 0;
-  const careerSummary: { career: string; university: string; avg: string }[] = [];
-
-  for (const entry of CAREER_REVIEWS) {
-    const uniName = CODE_TO_NAME[entry.universityCode];
-    const career = allCareers.find(
-      (c) => c.name === entry.careerName && c.university.name === uniName
-    );
-    if (!career) {
-      console.warn(`  ⚠ No encontrada: ${entry.universityCode} / ${entry.careerName}`);
-      continue;
-    }
-    for (const review of entry.reviews) {
-      await prisma.careerReview.create({ data: { ...review, careerId: career.id } });
-    }
-    careerReviewCount += entry.reviews.length;
-    const avg = (entry.reviews.reduce((s, r) => s + r.rating, 0) / entry.reviews.length).toFixed(1);
-    careerSummary.push({ career: entry.careerName, university: entry.universityCode, avg });
-  }
-
-  // ── University reviews ────────────────────────────────────────────────────
-
-  console.log("Creando reseñas de universidades...");
+  console.log("\nCreando reseñas de universidades...");
   let uniReviewCount = 0;
-  const uniSummary: { university: string; avg: string }[] = [];
-
   for (const entry of UNIVERSITY_REVIEWS) {
-    const uni = uniByCode.get(entry.universityCode);
+    const uni = uniByName.get(entry.universityName);
     if (!uni) {
-      console.warn(`  ⚠ No encontrada: ${entry.universityCode}`);
+      console.warn(`  ⚠ Universidad no encontrada: ${entry.universityName}`);
       continue;
     }
     for (const review of entry.reviews) {
       await prisma.universityReview.create({ data: { ...review, universityId: uni.id } });
     }
     uniReviewCount += entry.reviews.length;
-    const avg = (entry.reviews.reduce((s, r) => s + r.rating, 0) / entry.reviews.length).toFixed(1);
-    uniSummary.push({ university: entry.universityCode, avg });
   }
 
-  // ── Resumen ───────────────────────────────────────────────────────────────
+  console.log("Creando reseñas de carreras...");
+  let careerReviewCount = 0;
+  for (const entry of CAREER_REVIEWS) {
+    const uni = uniByName.get(entry.universityName);
+    if (!uni) {
+      console.warn(`  ⚠ Universidad no encontrada: ${entry.universityName}`);
+      continue;
+    }
+    const career = allCareers.find((c) => c.universityId === uni.id && c.name === entry.careerName);
+    if (!career) {
+      console.warn(`  ⚠ Carrera no encontrada: ${entry.universityName} / ${entry.careerName}`);
+      continue;
+    }
+    for (const review of entry.reviews) {
+      await prisma.careerReview.create({ data: { ...review, careerId: career.id } });
+    }
+    careerReviewCount += entry.reviews.length;
+  }
 
-  console.log(`\n✓ ${careerReviewCount} reseñas de carrera y ${uniReviewCount} de universidad creadas.\n`);
-
-  console.log("═══ Ratings de universidades ═══════════════════════════════");
-  uniSummary
-    .sort((a, b) => parseFloat(b.avg) - parseFloat(a.avg))
-    .forEach(({ university, avg }) => {
-      const bar = "█".repeat(Math.round(parseFloat(avg)));
-      console.log(`  ${university.padEnd(6)} ${avg} ${bar}`);
-    });
-
-  console.log("\n═══ Ratings de carreras (por área de interés) ══════════════");
-  careerSummary
-    .sort((a, b) => parseFloat(b.avg) - parseFloat(a.avg))
-    .forEach(({ career, university, avg }) => {
-      const bar = "█".repeat(Math.round(parseFloat(avg)));
-      console.log(`  ${avg} ${bar}  ${career} (${university})`);
-    });
-
-  console.log(`
-─────────────────────────────────────────────────────────────
-Para verificar el efecto de prestige en el test vocacional:
-
-1. Completá el test seleccionando un área (ej: Ingeniería y Tecnología).
-2. En la última pregunta elegí "Prestigio académico" como prioridad.
-3. Esperado: Ingeniería Informática (UTDT, avg ≈4.8) e Ingeniería en
-   Computación (UBA, avg ≈4.8) deberían subir por sobre
-   Ingeniería en Sistemas de Información (UTN, avg ≈3.9) e
-   Ingeniería Civil (UTN, avg ≈2.6), incluso si las últimas
-   tienen mayor afinidad vocacional pura.
-─────────────────────────────────────────────────────────────`);
+  console.log(`\n✓ ${uniReviewCount} reseñas de universidad y ${careerReviewCount} de carrera creadas.`);
 }
 
 main()
-  .catch(console.error)
+  .catch((err) => {
+    console.error(err);
+    process.exit(1);
+  })
   .finally(() => prisma.$disconnect());

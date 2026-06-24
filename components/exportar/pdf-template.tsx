@@ -6,9 +6,8 @@ export type CareerDetail = {
   durationYears: number
   degreeTitle: string
   modality: "PRESENCIAL" | "HIBRIDO" | "ONLINE"
-  studentCount: number
   description: string | null
-  university: { name: string; city: string; province: string; type: string }
+  university: { name: string; city: string; province: string; type: string; rating: number | null }
   area: { id?: string; name: string }
   rating: number | null
   reviewCount: number
@@ -26,6 +25,12 @@ const MODALITY_LABEL: Record<string, string> = {
 }
 
 export const PDF_COLORS = ["#4f46e5", "#7c3aed", "#0891b2", "#059669"]
+
+// Nombre de la universidad con su puntaje de reseñas al lado:
+// "Universidad de Buenos Aires - ⭐ 4.6" o "… - Sin reseñas".
+function universityLabel(u: { name: string; rating: number | null }): string {
+  return `${u.name} - ${u.rating !== null ? `⭐ ${u.rating}` : "Sin reseñas"}`
+}
 
 function PDFSectionTitle({ children }: { children: React.ReactNode }) {
   return (
@@ -57,6 +62,8 @@ function PDFMetricBar({
 
 function PDFCareerCard({ career, color }: { career: CareerDetail; color: string }) {
   const totalSubjects = career.studyPlans.reduce((s, p) => s + p.subjects.length, 0)
+  // "Materias" depende del plan de estudios, que el dataset actual no trae:
+  // solo se muestra si hay datos. "Calificación" (reseñas) se muestra siempre.
   const fields: [string, string][] = [
     ["Área", career.area.name],
     ["Institución", career.university.type === "PUBLIC" ? "Pública" : "Privada"],
@@ -64,10 +71,9 @@ function PDFCareerCard({ career, color }: { career: CareerDetail; color: string 
     ["Duración", `${career.durationYears} años`],
     ["Modalidad", MODALITY_LABEL[career.modality]],
     ["Título", career.degreeTitle],
-    ["Estudiantes", career.studentCount.toLocaleString("es-AR")],
-    ["Materias", `${totalSubjects} en total`],
-    ["Calificación", career.rating !== null ? `${career.rating} / 5.0 (${career.reviewCount} reseñas)` : "Sin reseñas"],
   ]
+  if (totalSubjects > 0) fields.push(["Materias", `${totalSubjects} en total`])
+  fields.push(["Calificación", career.rating !== null ? `${career.rating} / 5.0 (${career.reviewCount} reseñas)` : "Sin reseñas"])
 
   return (
     <div style={{ border: `2px solid ${color}`, borderRadius: "10px", padding: "20px", backgroundColor: "#fafafa" }}>
@@ -75,7 +81,7 @@ function PDFCareerCard({ career, color }: { career: CareerDetail; color: string 
       <h3 style={{ fontSize: "14px", fontWeight: 700, color: "#111827", margin: "0 0 3px", lineHeight: 1.3 }}>
         {career.name}
       </h3>
-      <p style={{ fontSize: "11px", color: "#6b7280", margin: "0 0 16px" }}>{career.university.name}</p>
+      <p style={{ fontSize: "11px", color: "#6b7280", margin: "0 0 16px" }}>{universityLabel(career.university)}</p>
       <div style={{ display: "flex", flexDirection: "column", gap: "7px" }}>
         {fields.map(([label, value]) => (
           <div key={label} style={{ display: "flex", gap: "8px", fontSize: "11px" }}>
@@ -92,9 +98,12 @@ export function PDFExportTemplate({ careers }: { careers: CareerDetail[] }) {
   const date = new Date().toLocaleDateString("es-AR", { day: "numeric", month: "long", year: "numeric" })
   const allYears = [...new Set(careers.flatMap((c) => c.studyPlans.map((p) => p.year)))].sort((a, b) => a - b)
 
-  const maxStudents = Math.max(...careers.map((c) => c.studentCount), 1)
   const maxDuration = Math.max(...careers.map((c) => c.durationYears), 1)
   const maxSubjects = Math.max(...careers.map((c) => c.studyPlans.reduce((s, p) => s + p.subjects.length, 0)), 1)
+
+  // "Total de materias" depende del plan de estudios (ausente en el dataset
+  // actual): solo se incluye si hay datos. "Calificación" (reseñas) va siempre.
+  const anySubjects = careers.some((c) => c.studyPlans.some((p) => p.subjects.length > 0))
 
   const cardCols = careers.length <= 2 ? careers.length : 2
 
@@ -106,10 +115,9 @@ export function PDFExportTemplate({ careers }: { careers: CareerDetail[] }) {
     ["Título otorgado", (c) => c.degreeTitle],
     ["Duración", (c) => `${c.durationYears} años`],
     ["Modalidad", (c) => MODALITY_LABEL[c.modality]],
-    ["Estudiantes inscritos", (c) => c.studentCount.toLocaleString("es-AR")],
-    ["Total de materias", (c) => `${c.studyPlans.reduce((s, p) => s + p.subjects.length, 0)}`],
-    ["Calificación", (c) => c.rating !== null ? `${c.rating} / 5.0 (${c.reviewCount} reseñas)` : "Sin reseñas"],
   ]
+  if (anySubjects) tableRows.push(["Total de materias", (c) => `${c.studyPlans.reduce((s, p) => s + p.subjects.length, 0)}`])
+  tableRows.push(["Calificación", (c) => c.rating !== null ? `${c.rating} / 5.0 (${c.reviewCount} reseñas)` : "Sin reseñas"])
 
   return (
     <div style={{ fontFamily: "'Segoe UI', Arial, sans-serif", color: "#111827", padding: "48px 56px", backgroundColor: "#ffffff", width: "100%" }}>
@@ -224,30 +232,20 @@ export function PDFExportTemplate({ careers }: { careers: CareerDetail[] }) {
         <PDFSectionTitle>Métricas comparativas</PDFSectionTitle>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "28px 40px" }}>
           <div>
-            <div style={{ fontSize: "12px", fontWeight: 600, color: "#374151", marginBottom: "12px" }}>Estudiantes inscritos</div>
-            {careers.map((c, i) => (
-              <PDFMetricBar key={c.id} label={c.name} value={c.studentCount} max={maxStudents} color={PDF_COLORS[i]} format={(v) => v.toLocaleString("es-AR")} />
-            ))}
-          </div>
-          <div>
             <div style={{ fontSize: "12px", fontWeight: 600, color: "#374151", marginBottom: "12px" }}>Duración de la carrera</div>
             {careers.map((c, i) => (
               <PDFMetricBar key={c.id} label={c.name} value={c.durationYears} max={maxDuration} color={PDF_COLORS[i]} format={(v) => `${v} año${v !== 1 ? "s" : ""}`} />
             ))}
           </div>
-          <div>
-            <div style={{ fontSize: "12px", fontWeight: 600, color: "#374151", marginBottom: "12px" }}>Total de materias</div>
-            {careers.map((c, i) => {
-              const total = c.studyPlans.reduce((s, p) => s + p.subjects.length, 0)
-              return <PDFMetricBar key={c.id} label={c.name} value={total} max={maxSubjects} color={PDF_COLORS[i]} format={(v) => `${v} materia${v !== 1 ? "s" : ""}`} />
-            })}
-          </div>
-          <div>
-            <div style={{ fontSize: "12px", fontWeight: 600, color: "#374151", marginBottom: "12px" }}>Calificación promedio</div>
-            {careers.map((c, i) => (
-              <PDFMetricBar key={c.id} label={c.name} value={c.rating ?? 0} max={5} color={PDF_COLORS[i]} format={(v) => v > 0 ? `${v} / 5.0` : "Sin datos"} />
-            ))}
-          </div>
+          {anySubjects && (
+            <div>
+              <div style={{ fontSize: "12px", fontWeight: 600, color: "#374151", marginBottom: "12px" }}>Total de materias</div>
+              {careers.map((c, i) => {
+                const total = c.studyPlans.reduce((s, p) => s + p.subjects.length, 0)
+                return <PDFMetricBar key={c.id} label={c.name} value={total} max={maxSubjects} color={PDF_COLORS[i]} format={(v) => `${v} materia${v !== 1 ? "s" : ""}`} />
+              })}
+            </div>
+          )}
         </div>
       </div>
 

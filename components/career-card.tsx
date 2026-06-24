@@ -2,7 +2,7 @@ import Link from "next/link"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { MapPin, Clock, Users, Bookmark, BookmarkCheck, Scale, Building2, Trash2 } from "lucide-react"
+import { MapPin, Clock, Bookmark, BookmarkCheck, Scale, Building2, Trash2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const MODALITY_LABEL: Record<string, string> = {
@@ -17,7 +17,6 @@ type CareerCardProps = {
     name: string
     modality: string
     durationYears: number
-    studentCount: number
     rating: number | null
   }
   university: {
@@ -68,10 +67,6 @@ export function CareerCard({
           <div className="flex items-center gap-2 text-muted-foreground">
             <Clock className="h-4 w-4 shrink-0" />
             {career.durationYears} {career.durationYears === 1 ? "año" : "años"}
-          </div>
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <Users className="h-4 w-4 shrink-0" />
-            {career.studentCount.toLocaleString("es-AR")} estudiantes
           </div>
           <div className="flex items-center gap-2 text-muted-foreground">
             {career.rating !== null ? `⭐ ${career.rating} / 5.0` : "Sin reseñas"}

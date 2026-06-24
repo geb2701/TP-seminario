@@ -9,7 +9,6 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   Clock,
-  Users,
   GraduationCap,
   Star,
   BookOpen,
@@ -62,7 +61,6 @@ type CareerDetail = {
   degreeTitle: string
   modality: "PRESENCIAL" | "HIBRIDO" | "ONLINE"
   description: string | null
-  studentCount: number
   rating: number | null
   reviewCount: number
   university: {
@@ -105,8 +103,8 @@ function SkeletonDetail() {
           <Skeleton className="h-6 w-24" />
         </div>
       </div>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, i) => (
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {Array.from({ length: 3 }).map((_, i) => (
           <Card key={i}>
             <CardContent className="pt-6">
               <Skeleton className="h-8 w-12 mb-1" />
@@ -206,7 +204,7 @@ export default function CarreraDetailPage({
       </section>
 
       {/* Resumen rapido de los datos mas importantes de la carrera */}
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
@@ -214,17 +212,6 @@ export default function CarreraDetailPage({
               <div>
                 <p className="text-2xl font-bold">{career.durationYears}</p>
                 <p className="text-xs text-muted-foreground">años de duración</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-3">
-              <Users className="h-5 w-5 text-muted-foreground shrink-0" />
-              <div>
-                <p className="text-2xl font-bold">{career.studentCount.toLocaleString("es-AR")}</p>
-                <p className="text-xs text-muted-foreground">estudiantes</p>
               </div>
             </div>
           </CardContent>

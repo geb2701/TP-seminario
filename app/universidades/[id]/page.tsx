@@ -43,7 +43,6 @@ type UniversityCareersResponse = {
       name: string
       modality: string
       durationYears: number
-      studentCount: number
       rating: number | null
       areaId: string | null
       areaName: string
@@ -186,7 +185,11 @@ export default function UniversityDetailPage({
           {/* Reseñas de la universidad */}
           <div className="space-y-4">
             <h2 className="text-xl font-semibold">Reseñas</h2>
-            <ReviewForm postUrl={`universities/${id}/reviews`} onSuccess={refetch} placeholder="Contá tu experiencia en esta universidad..." />
+            <ReviewForm
+              postUrl={`universities/${id}/reviews`}
+              onSuccess={refetch}
+              placeholder="Contá tu experiencia en esta universidad..."
+            />
             {university?.reviews.length === 0 ? (
               <EmptyState
                 icon={Star}
