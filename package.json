@@ -14,7 +14,9 @@
     "db:seed-reviews": "tsx scripts/seed-reviews.ts",
     "db:setup": "tsx scripts/setup-turso.ts",
     "scrape:siu": "tsx scripts/scrape-siu.ts",
-    "scrape:siu:transform": "tsx scripts/transform-siu-data.ts"
+    "scrape:siu:transform": "tsx scripts/transform-siu-data.ts",
+    "mcp": "tsx mcp/server.ts",
+    "mcp:dev": "tsx watch mcp/server.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",
@@ -23,6 +25,7 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@libsql/client": "^0.17.3",
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "@prisma/adapter-libsql": "^7.8.0",
     "@prisma/client": "^7.8.0",
     "@tailwindcss/postcss": "^4.2.4",
@@ -62,5 +65,5 @@
     "tsx": "^4.21.0",
     "typescript": "^5"
   },
-  "packageManager": "pnpm@11.1.1+sha512.d1fdf5f73c617b64fa1a56a81c3c8dfe0e966e33a6010aa256b517ae77be21d93e05affc0de1a83b0e4f29d569f68b446ae8f068cd7247c0bb3df0fb4d7bdf9a"
+  "packageManager": "pnpm@11.7.0+sha512.19cc852c120c7125760f2443ee6be0ca5b40f9f50598de1a09a1f177503e010e57c23c77646e01e761de59bf874fb22a3398c33ab9691fc13eb946b6f0f4d620"
 }
