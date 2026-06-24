@@ -16,6 +16,7 @@ import { Button, buttonVariants } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select"
 import {
   ArrowRight,
   ArrowLeft,
@@ -24,17 +25,16 @@ import {
   Trophy,
   Save,
   CheckCircle,
-  Sparkles,
 } from "lucide-react"
 import { useVocationalProfile } from "@/hooks/use-vocational-profile"
 import { useCompareCareers, MAX_COMPARE } from "@/hooks/use-compare-careers"
-import { AREA_COLORS, AREA_EMOJIS, getCareerAffinity } from "./constants"
+import { AREA_COLORS, AREA_EMOJIS, getCareerAffinity, careerGroupKey, buildReasons } from "./constants"
+import { CareerResultCard, orderUniversities, type CareerResult, type GroupedCareer } from "./CareerResultCard"
 import { ComparisonPanel, type CompareCareer } from "./ComparisonPanel"
 import { ExportPDFButton } from "@/components/exportar"
 import { CareerDetailPanel, type CareerDetailFull } from "./CareerDetailPanel"
 import { EmptyState } from "@/components/empty-state"
 import { Search } from "lucide-react"
-import { PaginationControls } from "@/components/pagination-controls"
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
 
@@ -43,15 +43,7 @@ interface Area {
   name: string
 }
 
-interface CareerResult {
-  id: string
-  name: string
-  durationYears: number
-  modality: "PRESENCIAL" | "HIBRIDO" | "ONLINE"
-  rating: number | null
-  university: { id: string; name: string; city: string; type: "PUBLIC" | "PRIVATE"; rating: number | null }
-  area: { id: string; name: string }
-}
+// CareerResult vive en ./CareerResultCard (compartido con el card de resultados).
 
 // ─── Áreas ───────────────────────────────────────────────────────────────────
 
@@ -475,6 +467,17 @@ const PHASE3_QUESTIONS: Phase3Question[] = [
     ],
   },
   {
+    // Las opciones de provincia se inyectan en runtime desde
+    // /api/universities/locations (ver `phase3QuestionsForRender`). Solo afecta
+    // el orden de las universidades dentro de cada carrera en los resultados,
+    // no el ranking de carreras.
+    id: "location",
+    text: "¿En qué provincia preferís estudiar?",
+    options: [
+      { value: "ANY", label: "Me es indiferente", description: "Cualquier provincia está bien" },
+    ],
+  },
+  {
     id: "duration",
     text: "¿Cuántos años máximos querés dedicarle a la carrera?",
     options: [
@@ -506,7 +509,7 @@ const PHASE3_QUESTIONS: Phase3Question[] = [
   },
 ]
 
-// página 1: Q0–Q2 | página 2: Q3–Q4
+// página 1: Q0–Q2 (modalidad/tipo/ubicación) | página 2: Q3–Q5 (duración/movilidad/prioridad)
 const PHASE3_PER_PAGE = 3
 const TOTAL_PHASE3_PAGES = Math.ceil(PHASE3_QUESTIONS.length / PHASE3_PER_PAGE)
 
@@ -543,7 +546,6 @@ function getGlobalTotal(top3Areas: string[]): number {
 
 const MIN_RESULTS = 4
 const AFFINITY_THRESHOLD = 50
-const RESULTS_PAGE_SIZE = 24
 
 // ─── Generación de respuestas aleatorias (testing) ───────────────────────────
 
@@ -609,6 +611,7 @@ export function VocationalTest({
   const [savedScores, setSavedScores] = useState<[string, number][] | null>(null)
   const [personName, setPersonName] = useState("")
   const [areas, setAreas] = useState<Area[]>([])
+  const [locations, setLocations] = useState<string[]>([])
   const [careers, setCareers] = useState<CareerResult[]>([])
   const [careerScores, setCareerScores] = useState<Record<string, number>>({})
   const [loadingCareers, setLoadingCareers] = useState(false)
@@ -620,7 +623,29 @@ export function VocationalTest({
       .then((r) => r.json())
       .then((data: Area[]) => setAreas(data))
       .catch(() => {})
+    fetch("/api/universities/locations")
+      .then((r) => r.json())
+      .then((data: string[]) => setLocations(data))
+      .catch(() => {})
   }, [])
+
+  // PHASE3_QUESTIONS con las opciones de provincia inyectadas en la pregunta
+  // de ubicación. Las provincias vienen del dataset (sin repetidos).
+  const phase3QuestionsForRender = useMemo<Phase3Question[]>(
+    () =>
+      PHASE3_QUESTIONS.map((q) =>
+        q.id === "location"
+          ? {
+              ...q,
+              options: [
+                ...q.options,
+                ...locations.map((p) => ({ value: p, label: p, description: "" })),
+              ],
+            }
+          : q
+      ),
+    [locations]
+  )
 
   const phase1Scores = calcPhase1Scores(phase1Answers)
   // savedScores tiene prioridad cuando se cargan resultados previos del perfil
@@ -742,6 +767,10 @@ export function VocationalTest({
 
   async function fillRandomAndSave(forcePriority?: "PRESTIGE" | "EMPLOYMENT") {
     const { phase1Answers: p1, phase2Answers: p2, phase3Answers: p3, scores, sorted, top3, topArea } = generateRandomProfile(forcePriority)
+    // generateRandomProfile no conoce las provincias (se cargan en runtime),
+    // así que para que el botón de dev ejercite el orden por ubicación elegimos
+    // una provincia real al azar acá.
+    if (locations.length > 0) p3["location"] = locations[Math.floor(Math.random() * locations.length)]
     const computed = calcCareerScores(p2, top3)
 
     setPhase1Answers(p1)
@@ -897,7 +926,7 @@ export function VocationalTest({
   if (step >= PHASE3_FIRST && step <= PHASE3_LAST) {
     const pageIndex = step - PHASE3_FIRST
     const start = pageIndex * PHASE3_PER_PAGE
-    const pageQs = PHASE3_QUESTIONS.slice(start, start + PHASE3_PER_PAGE)
+    const pageQs = phase3QuestionsForRender.slice(start, start + PHASE3_PER_PAGE)
     const allAnswered = pageQs.every((q) => phase3Answers[q.id] !== undefined)
     const phase2QuestionCount = top3Areas.reduce((sum, a) => sum + (AREA_CAREER_QUESTIONS[a]?.length ?? 0), 0)
 
@@ -1120,33 +1149,53 @@ function Phase3Screen({
                 <span className="text-muted-foreground mr-2">{absoluteStart + i + 1}.</span>
                 {q.text}
               </p>
-              <div className="grid gap-2">
-                {q.options.map((opt) => (
-                  <button
-                    key={opt.value}
-                    onClick={() => onAnswer(q.id, opt.value)}
-                    className={`flex items-center gap-3 rounded-lg border-2 px-4 py-3 text-left transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                      selected === opt.value
-                        ? "border-primary bg-primary/10 shadow-sm"
-                        : "border-border bg-card hover:border-primary/40 hover:bg-muted/50"
-                    }`}
-                  >
-                    <div
-                      className={`size-4 rounded-full border-2 shrink-0 transition-colors ${
-                        selected === opt.value
-                          ? "border-primary bg-primary"
-                          : "border-muted-foreground/40"
-                      }`}
-                    />
-                    <div>
-                      <p className={`text-sm font-medium ${selected === opt.value ? "text-primary" : ""}`}>
+              {/* La pregunta de ubicación usa un dropdown: tiene ~25 provincias y
+                  una lista de radios sería demasiado larga. El resto siguen como
+                  botones de selección única. */}
+              {q.id === "location" ? (
+                <Select value={selected} onValueChange={(v) => onAnswer(q.id, v ?? "ANY")}>
+                  <SelectTrigger className="w-full px-3">
+                    <span className={`flex-1 text-left text-sm truncate ${selected ? "" : "text-muted-foreground"}`}>
+                      {q.options.find((o) => o.value === selected)?.label ?? "Elegí una provincia"}
+                    </span>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {q.options.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
                         {opt.label}
-                      </p>
-                      <p className="text-xs text-muted-foreground">{opt.description}</p>
-                    </div>
-                  </button>
-                ))}
-              </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <div className="grid gap-2">
+                  {q.options.map((opt) => (
+                    <button
+                      key={opt.value}
+                      onClick={() => onAnswer(q.id, opt.value)}
+                      className={`flex items-center gap-3 rounded-lg border-2 px-4 py-3 text-left transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                        selected === opt.value
+                          ? "border-primary bg-primary/10 shadow-sm"
+                          : "border-border bg-card hover:border-primary/40 hover:bg-muted/50"
+                      }`}
+                    >
+                      <div
+                        className={`size-4 rounded-full border-2 shrink-0 transition-colors ${
+                          selected === opt.value
+                            ? "border-primary bg-primary"
+                            : "border-muted-foreground/40"
+                        }`}
+                      />
+                      <div>
+                        <p className={`text-sm font-medium ${selected === opt.value ? "text-primary" : ""}`}>
+                          {opt.label}
+                        </p>
+                        <p className="text-xs text-muted-foreground">{opt.description}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           )
         })}
@@ -1326,12 +1375,6 @@ function ResultsCarousel({
 
 // ─── Resultados ───────────────────────────────────────────────────────────────
 
-const MODALITY_LABEL: Record<string, string> = {
-  PRESENCIAL: "Presencial",
-  HIBRIDO: "Híbrido",
-  ONLINE: "Online",
-}
-
 function ResultsScreen({
   sortedPhase1,
   top3Areas,
@@ -1354,7 +1397,6 @@ function ResultsScreen({
   onReset: () => void
 }) {
   const [selectedAreas, setSelectedAreas] = useState<Set<string>>(new Set())
-  const [resultsPage, setResultsPage] = useState(1)
   const [activeSlide, setActiveSlide] = useState(0)
   const { set: setCompareIds } = useCompareCareers()
 
@@ -1389,18 +1431,67 @@ function ResultsScreen({
     return highAffinity.length >= MIN_RESULTS ? highAffinity : base
   }, [scoredCareers, selectedAreas])
 
-  const topN = useMemo(() => filteredByView.slice(0, MAX_COMPARE), [filteredByView])
+  // Agrupa las carreras por nombre (ver careerGroupKey): "Abogado" en 73
+  // universidades pasa a ser UN card con sus 73 universidades adentro. El orden
+  // entre grupos respeta el finalScore ya calculado (afinidad + prestigio), así
+  // que el badge "Ordenadas por prestigio" sigue aplicando.
+  const groupedCareers = useMemo<GroupedCareer[]>(() => {
+    const groups = new Map<string, GroupedCareer>()
+    for (const c of filteredByView) {
+      const key = careerGroupKey(c.name)
+      const existing = groups.get(key)
+      if (existing) {
+        existing.universities.push(c)
+      } else {
+        groups.set(key, {
+          key,
+          name: c.name,
+          area: c.area,
+          affinity: c.affinity,
+          finalScore: c.finalScore,
+          universities: [c],
+        })
+      }
+    }
+    return [...groups.values()]
+  }, [filteredByView])
 
-  const resultsTotalPages = Math.max(1, Math.ceil(filteredByView.length / RESULTS_PAGE_SIZE))
-  const resultsCurrentPage = Math.min(resultsPage, resultsTotalPages)
-  const resultsPageItems = useMemo(
-    () => filteredByView.slice((resultsCurrentPage - 1) * RESULTS_PAGE_SIZE, resultsCurrentPage * RESULTS_PAGE_SIZE),
-    [filteredByView, resultsCurrentPage]
-  )
-  const comparisonIds = useMemo(() => topN.map(c => c.id), [topN])
+  // Layout: card destacado (#0) + hasta 3 secundarios (#1-3). Se muestran como
+  // máximo 4 carreras: el resto se deja fuera a propósito para que la pantalla
+  // quede concisa (las opciones de universidad ya viven dentro de cada card).
+  const heroCareer = groupedCareers[0]
+  const secondaryCareers = groupedCareers.slice(1, 4)
+
+  // Razones de afinidad para un grupo (interés de fase 2 + área + preferencia
+  // satisfecha por su mejor universidad). Solo se muestran en el card destacado.
+  const reasonsFor = (g: GroupedCareer): string[] => {
+    const areaScore = sortedPhase1.find(([n]) => n === g.area.name)?.[1] ?? 0
+    const best = orderUniversities(g.universities, phase3Answers)[0]
+    // modality es de la fila carrera-universidad; province/type, de la universidad.
+    const bestUniversity = best
+      ? { province: best.university.province, type: best.university.type, modality: best.modality }
+      : null
+    return buildReasons({
+      careerName: g.name,
+      careerScores,
+      area: g.area.name,
+      areaScore,
+      bestUniversity,
+      phase3Answers,
+    })
+  }
+
+  // El comparador compara las mejores universidades de la carrera #1
+  // (un genuino "dónde estudiar {carrera top}"), ordenadas igual que en el card.
+  const comparisonIds = useMemo(() => {
+    if (!heroCareer) return [] as string[]
+    return orderUniversities(heroCareer.universities, phase3Answers)
+      .slice(0, MAX_COMPARE)
+      .map(c => c.id)
+  }, [heroCareer, phase3Answers])
   const isSingle = comparisonIds.length === 1
 
-  // Auto-sync topN into comparator (localStorage) whenever the IDs actually change
+  // Auto-sync into comparator (localStorage) whenever the IDs actually change
   useEffect(() => {
     if (comparisonIds.length > 0) setCompareIds(comparisonIds)
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1429,18 +1520,11 @@ function ResultsScreen({
       next.has(area) ? next.delete(area) : next.add(area)
       return next
     })
-    setResultsPage(1)
   }
 
   function clearAreas() {
     setSelectedAreas(new Set())
-    setResultsPage(1)
   }
-
-  // Phase 3 preference filters
-  const modalityPref = phase3Answers["modality"]
-  const typePref     = phase3Answers["type"]
-  const durationPref = phase3Answers["duration"]
 
   const slide2Content = comparisonIds.length === 0
     ? <EmptyState icon={Search} title="Sin carreras para comparar" description="Ajustá los filtros de área para ver resultados." />
@@ -1572,142 +1656,29 @@ function ResultsScreen({
             No hay carreras disponibles para esta selección.
           </p>
         ) : (
-          <div className="grid gap-2 lg:grid-cols-2">
-            {resultsPageItems.map((career, pageIndex) => {
-              const i = (resultsCurrentPage - 1) * RESULTS_PAGE_SIZE + pageIndex
-              const color = AREA_COLORS[career.area.name] ?? "hsl(var(--primary))"
-              const isTopN = i < MAX_COMPARE
-              return (
-                <div key={career.id} className="flex items-center gap-2">
-                  <span className={`text-sm tabular-nums w-5 text-right shrink-0 ${isTopN ? "font-bold" : "text-muted-foreground"}`}>
-                    {i + 1}.
-                  </span>
-                  <Link
-                    href={`/carreras/${career.id}`}
-                    className={`group flex-1 flex items-center gap-3 rounded-lg border bg-card px-4 py-2.5 hover:border-primary/40 hover:bg-muted/40 transition-colors ${isTopN ? "border-primary/20" : ""}`}
-                  >
-                    <div className="flex-1 space-y-1.5 min-w-0">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-sm font-medium group-hover:text-primary transition-colors truncate">
-                          {career.name}
-                        </span>
-                        <span
-                          className="text-sm font-bold tabular-nums shrink-0"
-                          style={{ color: career.affinity >= 60 ? color : "var(--muted-foreground)" }}
-                        >
-                          {career.affinity > 0 ? `${career.affinity}%` : "—"}
-                        </span>
-                      </div>
-                      <div className="h-1.5 bg-muted-foreground/20 rounded-full overflow-hidden">
-                        <div
-                          className="h-full rounded-full transition-all duration-700"
-                          style={{ width: `${career.affinity}%`, backgroundColor: color }}
-                        />
-                      </div>
-                      <p className="text-xs text-muted-foreground truncate">
-                        {career.university.name} · {AREA_EMOJIS[career.area.name]} {career.area.name}
-                        {career.rating != null && ` · ⭐ ${career.rating}`}
-                      </p>
-                    </div>
-                    <ArrowRight className="size-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-                  </Link>
-                </div>
-              )
-            })}
+          <div className="space-y-6">
+            {/* Card destacado: carrera #1 */}
+            {heroCareer && (
+              <CareerResultCard
+                career={heroCareer}
+                variant="hero"
+                reasons={reasonsFor(heroCareer)}
+                phase3Answers={phase3Answers}
+              />
+            )}
+
+            {/* Secundarias: #2-4, en grilla compacta. No se muestra nada más. */}
+            {secondaryCareers.length > 0 && (
+              <div className="grid gap-3 sm:grid-cols-3">
+                {secondaryCareers.map((g) => (
+                  <CareerResultCard key={g.key} career={g} variant="secondary" reasons={[]} phase3Answers={phase3Answers} />
+                ))}
+              </div>
+            )}
           </div>
         )}
 
-        <PaginationControls page={resultsCurrentPage} totalPages={resultsTotalPages} onPageChange={setResultsPage} />
-
       </section>
-
-      {/* ── Recomendadas según preferencias prácticas ── */}
-      {(() => {
-        const hasPrefs = (modalityPref && modalityPref !== "ANY") || (typePref && typePref !== "ANY") || durationPref
-        if (!hasPrefs) return null
-
-        const recommended = careers.filter((c) => {
-          if (modalityPref && modalityPref !== "ANY" && c.modality !== modalityPref) return false
-          if (typePref && typePref !== "ANY" && c.university.type !== typePref) return false
-          if (durationPref && durationPref !== "6" && c.durationYears > parseInt(durationPref)) return false
-          return true
-        }).sort((a, b) =>
-          calcFinalScore(getCareerAffinity(careerScores, b.name), b.rating, b.university.rating, prioritizePrestige) -
-          calcFinalScore(getCareerAffinity(careerScores, a.name), a.rating, a.university.rating, prioritizePrestige)
-        )
-
-        return (
-          <section className="space-y-4 rounded-xl border border-primary/20 bg-primary/5 p-5">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <Sparkles className="size-4 text-primary" />
-                <h2 className="text-base font-semibold">Recomendadas según tus preferencias</h2>
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {modalityPref && modalityPref !== "ANY" && (
-                  <span className="rounded-full bg-background border px-2.5 py-0.5 text-xs text-muted-foreground">
-                    {MODALITY_LABEL[modalityPref]}
-                  </span>
-                )}
-                {typePref && typePref !== "ANY" && (
-                  <span className="rounded-full bg-background border px-2.5 py-0.5 text-xs text-muted-foreground">
-                    {typePref === "PUBLIC" ? "Pública" : "Privada"}
-                  </span>
-                )}
-                {durationPref && (
-                  <span className="rounded-full bg-background border px-2.5 py-0.5 text-xs text-muted-foreground">
-                    Hasta {durationPref} años
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {recommended.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                Ninguna de las carreras con mayor afinidad coincide exactamente con tus preferencias.
-                Podés explorar el catálogo completo para encontrar opciones que se ajusten.
-              </p>
-            ) : (
-              <div className="grid gap-2 lg:grid-cols-2">
-                {recommended.map((career) => {
-                  const score = getCareerAffinity(careerScores, career.name)
-                  const color = AREA_COLORS[career.area.name] ?? "hsl(var(--primary))"
-                  return (
-                    <Link
-                      key={career.id}
-                      href={`/carreras/${career.id}`}
-                      className="group flex items-center gap-3 rounded-lg border bg-background px-4 py-3 hover:border-primary/40 hover:bg-muted/40 transition-colors"
-                    >
-                      <div className="flex-1 space-y-1">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-sm font-medium group-hover:text-primary transition-colors">
-                            {career.name}
-                          </span>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <span className="text-[10px] text-muted-foreground">
-                              {AREA_EMOJIS[career.area.name]} {career.area.name}
-                            </span>
-                            <span
-                              className="text-sm font-bold tabular-nums"
-                              style={{ color: score >= 60 ? color : "hsl(var(--muted-foreground))" }}
-                            >
-                              {score > 0 ? `${score}%` : "—"}
-                            </span>
-                          </div>
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                          {career.university.name} · {MODALITY_LABEL[career.modality]} · {career.durationYears} años
-                        </p>
-                      </div>
-                      <ArrowRight className="size-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-                    </Link>
-                  )
-                })}
-              </div>
-            )}
-          </section>
-        )
-      })()}
 
       {/* ── Perfil completo (radar) ── */}
       <section className="space-y-4">
