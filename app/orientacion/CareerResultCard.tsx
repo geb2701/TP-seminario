@@ -25,7 +25,6 @@ export interface GroupedCareer {
   name: string
   area: { id: string; name: string }
   affinity: number
-  finalScore: number
   universities: CareerResult[]
 }
 
@@ -35,31 +34,79 @@ const MODALITY_LABEL: Record<string, string> = {
   ONLINE: "Online",
 }
 
-// Ordena las universidades de una carrera con prioridades suaves: provincia
-// elegida → tipo (pública/privada) → modalidad → rating (mayor primero, sin
-// reseñas al final). Nunca filtra: todas las universidades siguen visibles.
+// ─── Ordenamiento por residencia / movilidad / prioridad ──────────────────────
+// Fuente única de verdad para ordenar tanto las carreras (a nivel resultados)
+// como las universidades dentro de cada card. La afinidad sigue siendo el
+// FILTRO de pertenencia (se calcula y filtra en VocationalTest); acá solo
+// reordena dentro de ese conjunto.
+
+export interface SortContext {
+  residence: string
+  provinceFirst: boolean
+  priority: string
+  typePref?: string
+  modalityPref?: string
+}
+
+export function deriveSortContext(phase3Answers: Record<string, string>): SortContext {
+  const mobility = phase3Answers["mobility"]
+  const priority = phase3Answers["priority"] ?? ""
+  // LOCAL y COMMUTE = "solo mi provincia". RELOCATE = abierto a otras provincias.
+  // priority=LOCATION fija la provincia incluso bajo RELOCATE (elección explícita).
+  const strict = mobility === "LOCAL" || mobility === "COMMUTE"
+  return {
+    residence: phase3Answers["location"] ?? "",
+    provinceFirst: strict || priority === "LOCATION",
+    priority,
+    typePref: phase3Answers["type"],
+    modalityPref: phase3Answers["modality"],
+  }
+}
+
+// Forma mínima que necesita el comparador (un row carrera+universidad).
+export interface SortRow {
+  province: string
+  type: "PUBLIC" | "PRIVATE"
+  modality: "PRESENCIAL" | "HIBRIDO" | "ONLINE"
+  rating: number | null
+  affinity?: number // presente al ordenar carreras; constante dentro de un card
+}
+
+// Claves lexicográficas ascendentes (0 = mejor). Orden:
+// provincia (si provinceFirst) → señal de prioridad → afinidad → tipo → modalidad → rating.
+export function rowSortKeys(row: SortRow, ctx: SortContext): number[] {
+  const keys: number[] = []
+  if (ctx.provinceFirst) keys.push(row.province === ctx.residence ? 0 : 1)
+  // Señal de prioridad: PRESTIGE → rating; COST → pública primero; LOCATION/EMPLOYMENT → ninguna.
+  if (ctx.priority === "PRESTIGE") keys.push(row.rating != null ? 5 - row.rating : 5)
+  else if (ctx.priority === "COST") keys.push(row.type === "PUBLIC" ? 0 : 1)
+  keys.push(100 - (row.affinity ?? 0)) // afinidad desc (constante dentro de un card)
+  if (ctx.typePref && ctx.typePref !== "ANY") keys.push(row.type === ctx.typePref ? 0 : 1)
+  if (ctx.modalityPref && ctx.modalityPref !== "ANY") keys.push(row.modality === ctx.modalityPref ? 0 : 1)
+  keys.push(row.rating != null ? 5 - row.rating : 5) // tiebreak general por rating
+  return keys
+}
+
+export function compareSortKeys(a: number[], b: number[]): number {
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) return a[i] - b[i]
+  }
+  return 0
+}
+
+// Ordena las universidades de una carrera con el mismo contexto. La afinidad es
+// constante dentro de una carrera, así que esa clave no influye acá. Nunca
+// filtra: todas las universidades siguen visibles.
 export function orderUniversities(
   universities: CareerResult[],
   phase3Answers: Record<string, string>
 ): CareerResult[] {
-  const locationPref = phase3Answers["location"]
-  const typePref = phase3Answers["type"]
-  const modalityPref = phase3Answers["modality"]
-
-  const score = (c: CareerResult): number[] => [
-    locationPref && locationPref !== "ANY" && c.university.province === locationPref ? 0 : 1,
-    typePref && typePref !== "ANY" && c.university.type === typePref ? 0 : 1,
-    modalityPref && modalityPref !== "ANY" && c.modality === modalityPref ? 0 : 1,
-    c.university.rating != null ? -c.university.rating : 1, // rating desc, nulls al final
-  ]
-
+  const ctx = deriveSortContext(phase3Answers)
+  const keyOf = (c: CareerResult) =>
+    rowSortKeys({ province: c.university.province, type: c.university.type, modality: c.modality, rating: c.university.rating }, ctx)
   return [...universities].sort((a, b) => {
-    const sa = score(a)
-    const sb = score(b)
-    for (let i = 0; i < sa.length; i++) {
-      if (sa[i] !== sb[i]) return sa[i] - sb[i]
-    }
-    return a.university.name.localeCompare(b.university.name, "es")
+    const cmp = compareSortKeys(keyOf(a), keyOf(b))
+    return cmp !== 0 ? cmp : a.university.name.localeCompare(b.university.name, "es")
   })
 }
 
@@ -148,7 +195,17 @@ export function CareerResultCard({
         <div className="flex items-start gap-3">
           <CircularScore value={career.affinity} color={color} size={isHero ? 84 : 56} />
           <div className="flex-1 min-w-0 space-y-1">
-            <h3 className={`font-semibold leading-snug break-words ${isHero ? "text-lg" : "text-sm"}`}>{career.name}</h3>
+            {/* El título lleva al detalle de la mejor opción de esa carrera,
+                conservando la conexión carrera → detalle. */}
+            <h3 className={`font-semibold leading-snug break-words ${isHero ? "text-lg" : "text-sm"}`}>
+              {ordered[0] ? (
+                <Link href={`/carreras/${ordered[0].id}`} className="hover:text-primary hover:underline transition-colors">
+                  {career.name}
+                </Link>
+              ) : (
+                career.name
+              )}
+            </h3>
             <p className="text-xs text-muted-foreground">
               {AREA_EMOJIS[career.area.name]} {career.area.name} · {career.universities.length}{" "}
               {career.universities.length === 1 ? "universidad" : "universidades"}
