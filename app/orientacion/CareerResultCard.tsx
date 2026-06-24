@@ -4,6 +4,7 @@ import { useState } from "react"
 import Link from "next/link"
 import { ArrowRight, ChevronDown } from "lucide-react"
 import { AREA_COLORS, AREA_EMOJIS } from "./constants"
+import { PrestigeBadge, isPrestigious } from "@/components/prestige-badge"
 
 // Un (carrera, universidad) del dataset. Cada fila conserva su propio Career.id,
 // así que los links a /carreras/{id} siguen siendo profundos y precisos.
@@ -151,6 +152,7 @@ function UniversityRow({ option }: { option: CareerResult }) {
       <div className="flex-1 min-w-0 space-y-0.5">
         <div className="flex items-start gap-2 min-w-0">
           <span className="text-sm font-medium break-words min-w-0 group-hover:text-primary transition-colors">{u.name}</span>
+          {isPrestigious(u.rating) && <PrestigeBadge />}
           <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${u.type === "PUBLIC" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" : "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400"}`}>
             {u.type === "PUBLIC" ? "Pública" : "Privada"}
           </span>

@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils"
 import { MapPin, BookOpen, Globe, Search, SearchX } from "lucide-react"
 import { EmptyState } from "@/components/empty-state"
 import { ErrorState } from "@/components/error-state"
+import { PrestigeBadge, isPrestigious } from "@/components/prestige-badge"
 
 const PAGE_SIZE = 12
 
@@ -219,7 +220,10 @@ function UniversidadesPageContent() {
                     <div className="flex items-start gap-3">
                       <UniversityLogo name={uni.name} logoUrl={uni.logoUrl} />
                       <div>
-                        <CardTitle className="text-lg">{uni.name}</CardTitle>
+                        <CardTitle className="text-lg flex items-center gap-2 flex-wrap">
+                          {uni.name}
+                          {isPrestigious(uni.rating) && <PrestigeBadge />}
+                        </CardTitle>
                         {uni.foundedYear && (
                           <CardDescription className="mt-1">
                             Fundada en {uni.foundedYear}

@@ -14,6 +14,7 @@ import { EmptyState } from "@/components/empty-state"
 import { ReviewForm } from "@/components/review-form"
 import { Star } from "lucide-react"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
+import { PrestigeBadge, isPrestigious } from "@/components/prestige-badge"
 
 type Review = {
   id: string
@@ -93,7 +94,10 @@ export default function UniversityDetailPage({
             <Skeleton className="h-4 w-40" />
           </>
         ) : (
-          <h1 className="text-3xl lg:text-4xl font-bold">{university?.name}</h1>
+          <h1 className="text-3xl lg:text-4xl font-bold flex items-center gap-3 flex-wrap">
+            {university?.name}
+            {isPrestigious(uniRating) && <PrestigeBadge />}
+          </h1>
         )}
       </div>
 

@@ -81,7 +81,14 @@ function PDFCareerCard({ career, color }: { career: CareerDetail; color: string 
       <h3 style={{ fontSize: "14px", fontWeight: 700, color: "#111827", margin: "0 0 3px", lineHeight: 1.3 }}>
         {career.name}
       </h3>
-      <p style={{ fontSize: "11px", color: "#6b7280", margin: "0 0 16px" }}>{universityLabel(career.university)}</p>
+      <p style={{ fontSize: "11px", color: "#6b7280", margin: "0 0 16px", display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+        <span>{universityLabel(career.university)}</span>
+        {career.university.rating !== null && career.university.rating >= 4.8 && (
+          <span style={{ border: "1px solid #d4af37", color: "#b8860b", backgroundColor: "#fffbeb", borderRadius: "9999px", padding: "1px 6px", fontSize: "9px", fontWeight: 600, whiteSpace: "nowrap" }}>
+            ✦ Prestigiosa
+          </span>
+        )}
+      </p>
       <div style={{ display: "flex", flexDirection: "column", gap: "7px" }}>
         {fields.map(([label, value]) => (
           <div key={label} style={{ display: "flex", gap: "8px", fontSize: "11px" }}>

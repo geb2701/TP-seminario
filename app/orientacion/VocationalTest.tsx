@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useRef } from "react"
 import Link from "next/link"
 import { useQuery } from "@tanstack/react-query"
 import { api } from "@/lib/api"
@@ -523,6 +523,13 @@ function getGlobalTotal(top3Areas: string[]): number {
 const MIN_RESULTS = 4
 const AFFINITY_THRESHOLD = 50
 
+// ─── Autopilot (replay animado de los perfiles de prueba) ─────────────────────
+// En vez de saltar directo a resultados, el autopilot "completa" el test a la
+// vista: rellena cada pregunta y avanza página por página con pequeñas pausas.
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+const AUTOPILOT_ANSWER_MS = 280 // pausa entre respuestas dentro de una página
+const AUTOPILOT_PAGE_MS = 450 // pausa al cambiar de página
+
 type PresetProfileId = "VALENTINA" | "TOMAS"
 
 const PRESET_PROFILES: Record<
@@ -661,6 +668,12 @@ export function VocationalTest({
   const [loadingCareers, setLoadingCareers] = useState(false)
   const [saved, setSaved] = useState(false)
   const [saving, setSaving] = useState(false)
+  // Autopilot: true mientras el test se autocompleta en pantalla. El ref permite
+  // cancelar la secuencia (al cerrar/reiniciar) sin tocar estado tras desmontar.
+  const [autopilot, setAutopilot] = useState(false)
+  const autopilotCancelRef = useRef(false)
+
+  useEffect(() => () => { autopilotCancelRef.current = true }, [])
 
   useEffect(() => {
     fetch("/api/areas")
@@ -789,6 +802,8 @@ export function VocationalTest({
   }
 
   function reset() {
+    autopilotCancelRef.current = true
+    setAutopilot(false)
     setStep(0)
     setPhase1Answers({})
     setPhase2Answers({})
@@ -843,8 +858,8 @@ export function VocationalTest({
     finally { setLoadingCareers(false) }
   }
 
-  async function applyPresetProfile(presetId: PresetProfileId) {
-    if (areas.length === 0 || locations.length === 0) return
+  async function runPresetAutopilot(presetId: PresetProfileId) {
+    if (areas.length === 0 || locations.length === 0 || autopilot) return
 
     const preset = PRESET_PROFILES[presetId]
     const p1 = buildPhase1AnswersForArea(preset.primaryArea)
@@ -869,16 +884,74 @@ export function VocationalTest({
       location: matchingLocation,
     }
 
-    const computed = calcCareerScores(p2, top3)
-
-    setPhase1Answers(p1)
-    setPhase2Answers(p2)
-    setPhase3Answers(p3)
-    setTop3Areas(top3)
-    setCareerScores(computed)
+    // ── Armado del autopilot ──
+    autopilotCancelRef.current = false
+    const cancelled = () => autopilotCancelRef.current
+    setAutopilot(true)
+    setSaved(false)
     setSavedScores(sorted)
+    setCareerScores(calcCareerScores(p2, top3))
     setPersonName(preset.personName)
+    setPhase1Answers({})
+    setPhase2Answers({})
+    setPhase3Answers({})
+    // top3 se fija de entrada para que el progreso y getGlobalTotal usen el
+    // denominador real desde la fase 1.
+    setTop3Areas(top3)
+    setStep(1)
+    await sleep(AUTOPILOT_PAGE_MS)
 
+    // ── Fase 1: una página por vez, rellenando cada pregunta ──
+    for (let page = 0; page < P1; page++) {
+      if (cancelled()) return
+      setStep(1 + page)
+      const start = page * PHASE1_PER_PAGE
+      const count = Math.min(PHASE1_PER_PAGE, PHASE1_QUESTIONS.length - start)
+      for (let i = 0; i < count; i++) {
+        if (cancelled()) return
+        const idx = start + i
+        setPhase1Answers((prev) => ({ ...prev, [idx]: p1[idx] }))
+        await sleep(AUTOPILOT_ANSWER_MS)
+      }
+      await sleep(AUTOPILOT_PAGE_MS)
+    }
+
+    // ── Fase 2: una página por área del top 3 ──
+    for (let areaIndex = 0; areaIndex < top3.length; areaIndex++) {
+      if (cancelled()) return
+      setStep(PHASE2_FIRST + areaIndex)
+      const qs = AREA_CAREER_QUESTIONS[top3[areaIndex]] ?? []
+      for (let qi = 0; qi < qs.length; qi++) {
+        if (cancelled()) return
+        const key = `${areaIndex}_${qi}`
+        setPhase2Answers((prev) => ({ ...prev, [key]: p2[key] }))
+        await sleep(AUTOPILOT_ANSWER_MS)
+      }
+      await sleep(AUTOPILOT_PAGE_MS)
+    }
+
+    // ── Fase 3: preferencias prácticas, página por página ──
+    for (let page = 0; page < TOTAL_PHASE3_PAGES; page++) {
+      if (cancelled()) return
+      setStep(PHASE3_FIRST + page)
+      const start = page * PHASE3_PER_PAGE
+      const pageQs = phase3QuestionsForRender.slice(start, start + PHASE3_PER_PAGE)
+      for (const q of pageQs) {
+        if (cancelled()) return
+        const val = p3[q.id]
+        if (val !== undefined) setPhase3Answers((prev) => ({ ...prev, [q.id]: val }))
+        await sleep(AUTOPILOT_ANSWER_MS)
+      }
+      await sleep(AUTOPILOT_PAGE_MS)
+    }
+
+    // ── Finalizar: pasa por la pantalla de guardado un instante ──
+    if (cancelled()) return
+    setStep(SAVE_STEP)
+    await sleep(700)
+    if (cancelled()) return
+
+    setCareerScores(calcCareerScores(p2, top3))
     saveProfile({
       scores,
       topArea,
@@ -912,12 +985,15 @@ export function VocationalTest({
         }
       }
       setCareers(merged)
-      setStep(RESULT_STEP)
     } catch {
       // silently ignore
     } finally {
       setLoadingCareers(false)
     }
+
+    if (cancelled()) return
+    setAutopilot(false)
+    setStep(RESULT_STEP)
   }
 
   // Auto-carga resultados guardados en cuanto están disponibles los datos de áreas
@@ -980,21 +1056,21 @@ export function VocationalTest({
 
     return (
       <>
-        {step === 1 && (
+        {step === 1 && !autopilot && (
           <div className="max-w-2xl mx-auto px-4 pt-8 pb-2">
             <div className="rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/5 via-card to-card p-4 shadow-sm space-y-3">
               <div className="space-y-1">
                 <p className="text-sm font-semibold">Perfiles de prueba (autocompletado)</p>
                 <p className="text-xs text-muted-foreground">
-                  Elegí un perfil para completar el test automáticamente y ver resultados al instante.
+                  Elegí un perfil y mirá cómo el test se completa solo, paso a paso, antes de mostrar los resultados.
                 </p>
               </div>
               <div className="grid gap-2 sm:grid-cols-2">
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => applyPresetProfile("VALENTINA")}
-                  disabled={areas.length === 0 || locations.length === 0}
+                  onClick={() => runPresetAutopilot("VALENTINA")}
+                  disabled={areas.length === 0 || locations.length === 0 || autopilot}
                   className="group justify-start h-auto rounded-xl border-primary/20 bg-card/80 px-4 py-3 hover:border-primary/40 hover:bg-primary/5 transition-all"
                 >
                   <div className="text-left leading-tight">
@@ -1005,8 +1081,8 @@ export function VocationalTest({
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => applyPresetProfile("TOMAS")}
-                  disabled={areas.length === 0 || locations.length === 0}
+                  onClick={() => runPresetAutopilot("TOMAS")}
+                  disabled={areas.length === 0 || locations.length === 0 || autopilot}
                   className="group justify-start h-auto rounded-xl border-primary/20 bg-card/80 px-4 py-3 hover:border-primary/40 hover:bg-primary/5 transition-all"
                 >
                   <div className="text-left leading-tight">
@@ -1035,6 +1111,7 @@ export function VocationalTest({
           onBack={() => {
             if (skipIntro && step === 1) { onClose?.() } else { setStep(step - 1) }
           }}
+          autopilot={autopilot}
         />
       </>
     )
@@ -1069,6 +1146,7 @@ export function VocationalTest({
         }
         onNext={() => (step < PHASE2_LAST ? setStep(step + 1) : setStep(PHASE3_FIRST))}
         onBack={() => setStep(step - 1)}
+        autopilot={autopilot}
       />
     )
   }
@@ -1092,6 +1170,7 @@ export function VocationalTest({
         onAnswer={(id, val) => setPhase3Answers((prev) => ({ ...prev, [id]: val }))}
         onNext={() => (step < PHASE3_LAST ? setStep(step + 1) : setStep(SAVE_STEP))}
         onBack={() => setStep(step - 1)}
+        autopilot={autopilot}
       />
     )
   }
@@ -1101,7 +1180,7 @@ export function VocationalTest({
     return (
       <SaveScreen
         personName={personName}
-        saving={saving}
+        saving={saving || autopilot}
         onNameChange={setPersonName}
         onConfirm={handleSaveAndShowResults}
         onBack={() => setStep(PHASE3_LAST)}
@@ -1171,6 +1250,7 @@ function QuestionScreen({
   onAnswer,
   onNext,
   onBack,
+  autopilot = false,
 }: {
   absoluteStart: number
   globalTotal: number
@@ -1181,6 +1261,7 @@ function QuestionScreen({
   onAnswer: (qi: number, val: number) => void
   onNext: () => void
   onBack: () => void
+  autopilot?: boolean
 }) {
   const progress = (absoluteStart / globalTotal) * 100
 
@@ -1211,11 +1292,12 @@ function QuestionScreen({
                 <span className="text-muted-foreground mr-2">{absoluteStart + i + 1}.</span>
                 {text}
               </p>
-              <div className="grid grid-cols-5 gap-1.5">
+              <div className={`grid grid-cols-5 gap-1.5 ${autopilot ? "pointer-events-none" : ""}`}>
                 {OPTIONS.map((opt) => (
                   <button
                     key={opt.value}
                     onClick={() => onAnswer(qi, opt.value)}
+                    disabled={autopilot}
                     className={`flex flex-col items-center gap-1 rounded-lg border-2 py-2.5 px-1 text-center transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                       selected === opt.value
                         ? "border-primary bg-primary text-primary-foreground shadow-md scale-[1.04]"
@@ -1235,16 +1317,31 @@ function QuestionScreen({
       </div>
 
       {/* Navegación */}
-      <div className="flex justify-between pt-2">
-        <Button variant="ghost" onClick={onBack} className="gap-2">
-          <ArrowLeft className="size-4" />
-          Anterior
-        </Button>
-        <Button onClick={onNext} disabled={!allAnswered} className="gap-2">
-          {isLast ? "Finalizar" : "Siguiente"}
-          <ArrowRight className="size-4" />
-        </Button>
-      </div>
+      {autopilot ? (
+        <AutopilotIndicator />
+      ) : (
+        <div className="flex justify-between pt-2">
+          <Button variant="ghost" onClick={onBack} className="gap-2">
+            <ArrowLeft className="size-4" />
+            Anterior
+          </Button>
+          <Button onClick={onNext} disabled={!allAnswered} className="gap-2">
+            {isLast ? "Finalizar" : "Siguiente"}
+            <ArrowRight className="size-4" />
+          </Button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Indicador mostrado mientras el autopilot autocompleta el test, en lugar de la
+// navegación manual.
+function AutopilotIndicator() {
+  return (
+    <div className="flex items-center justify-center gap-2 pt-2 text-sm text-muted-foreground">
+      <div className="size-4 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+      Completando tu test automáticamente…
     </div>
   )
 }
@@ -1261,6 +1358,7 @@ function Phase3Screen({
   onAnswer,
   onNext,
   onBack,
+  autopilot = false,
 }: {
   questions: Phase3Question[]
   answers: Record<string, string>
@@ -1271,6 +1369,7 @@ function Phase3Screen({
   onAnswer: (id: string, val: string) => void
   onNext: () => void
   onBack: () => void
+  autopilot?: boolean
 }) {
   const progress = (absoluteStart / globalTotal) * 100
 
@@ -1304,7 +1403,7 @@ function Phase3Screen({
                   una lista de radios sería demasiado larga. El resto siguen como
                   botones de selección única. */}
               {q.id === "location" ? (
-                <Select value={selected} onValueChange={(v) => onAnswer(q.id, v ?? "ANY")}>
+                <Select value={selected} onValueChange={(v) => onAnswer(q.id, v ?? "ANY")} disabled={autopilot}>
                   <SelectTrigger className="w-full px-3">
                     <span className={`flex-1 text-left text-sm truncate ${selected ? "" : "text-muted-foreground"}`}>
                       {q.options.find((o) => o.value === selected)?.label ?? "Elegí tu provincia"}
@@ -1319,11 +1418,12 @@ function Phase3Screen({
                   </SelectContent>
                 </Select>
               ) : (
-                <div className="grid gap-2">
+                <div className={`grid gap-2 ${autopilot ? "pointer-events-none" : ""}`}>
                   {q.options.map((opt) => (
                     <button
                       key={opt.value}
                       onClick={() => onAnswer(q.id, opt.value)}
+                      disabled={autopilot}
                       className={`flex items-center gap-3 rounded-lg border-2 px-4 py-3 text-left transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                         selected === opt.value
                           ? "border-primary bg-primary/10 shadow-sm"
@@ -1353,16 +1453,20 @@ function Phase3Screen({
       </div>
 
       {/* Navegación */}
-      <div className="flex justify-between pt-2">
-        <Button variant="ghost" onClick={onBack} className="gap-2">
-          <ArrowLeft className="size-4" />
-          Anterior
-        </Button>
-        <Button onClick={onNext} disabled={!allAnswered} className="gap-2">
-          {isLast ? "Finalizar" : "Siguiente"}
-          <ArrowRight className="size-4" />
-        </Button>
-      </div>
+      {autopilot ? (
+        <AutopilotIndicator />
+      ) : (
+        <div className="flex justify-between pt-2">
+          <Button variant="ghost" onClick={onBack} className="gap-2">
+            <ArrowLeft className="size-4" />
+            Anterior
+          </Button>
+          <Button onClick={onNext} disabled={!allAnswered} className="gap-2">
+            {isLast ? "Finalizar" : "Siguiente"}
+            <ArrowRight className="size-4" />
+          </Button>
+        </div>
+      )}
     </div>
   )
 }
