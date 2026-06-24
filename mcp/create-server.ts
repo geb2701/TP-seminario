@@ -2,16 +2,16 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { z } from "zod"
 import { prisma } from "@/lib/prisma"
 
-const AREAS_VOCACIONALES = [
-  "Ingeniería y Tecnología",
-  "Ciencias de la Salud",
-  "Ciencias Económicas",
-  "Derecho y Ciencias Sociales",
-  "Humanidades y Artes",
-  "Ciencias Exactas y Naturales",
-  "Arquitectura y Diseño",
-  "Comunicación y Periodismo",
-]
+const MODALITY_LABEL: Record<string, string> = {
+  PRESENCIAL: "Presencial",
+  HIBRIDO: "Híbrido",
+  ONLINE: "Online",
+}
+
+async function getAreaNames(): Promise<string[]> {
+  const areas = await prisma.area.findMany({ select: { name: true }, orderBy: { name: "asc" } })
+  return areas.map((a) => a.name)
+}
 
 export function createMcpServer() {
   const server = new McpServer({ name: "uniflow-mcp", version: "1.0.0" })
@@ -19,50 +19,72 @@ export function createMcpServer() {
   server.registerTool(
     "listar_universidades",
     {
-      description: "Lista todas las universidades. Podés filtrar por tipo (PUBLIC/PRIVATE) o provincia.",
+      description: "Lista universidades. Filtrá por tipo, provincia o ciudad. Soporta paginación.",
       inputSchema: {
         tipo: z.enum(["PUBLIC", "PRIVATE"]).optional().describe("Tipo de institución"),
         provincia: z.string().optional().describe("Filtrar por provincia"),
+        ciudad: z.string().optional().describe("Filtrar por ciudad"),
+        pagina: z.number().int().min(1).optional().describe("Número de página (por defecto 1)"),
+        por_pagina: z.number().int().min(1).max(100).optional().describe("Resultados por página (por defecto 50)"),
       },
     },
-    async ({ tipo, provincia }) => {
-      const universidades = await prisma.university.findMany({
-        where: {
-          ...(tipo && { type: tipo }),
-          ...(provincia && { province: { contains: provincia } }),
-        },
-        select: {
-          id: true,
-          name: true,
-          shortCode: true,
-          city: true,
-          province: true,
-          type: true,
-          foundedYear: true,
-          website: true,
-          _count: { select: { careers: true, reviews: true } },
-        },
-        orderBy: { name: "asc" },
-      })
+    async ({ tipo, provincia, ciudad, pagina = 1, por_pagina = 50 }) => {
+      const where = {
+        ...(tipo && { type: tipo }),
+        ...(provincia && { province: { contains: provincia } }),
+        ...(ciudad && { city: { contains: ciudad } }),
+      }
+
+      const [universidades, total] = await Promise.all([
+        prisma.university.findMany({
+          where,
+          select: {
+            id: true,
+            name: true,
+            shortCode: true,
+            city: true,
+            province: true,
+            type: true,
+            foundedYear: true,
+            website: true,
+            _count: { select: { careers: true, reviews: true } },
+            reviews: { select: { rating: true } },
+          },
+          orderBy: { name: "asc" },
+          skip: (pagina - 1) * por_pagina,
+          take: por_pagina,
+        }),
+        prisma.university.count({ where }),
+      ])
 
       return {
         content: [{
           type: "text",
-          text: JSON.stringify(
-            universidades.map((u) => ({
-              id: u.id,
-              nombre: u.name,
-              codigo: u.shortCode,
-              ciudad: u.city,
-              provincia: u.province,
-              tipo: u.type === "PUBLIC" ? "Pública" : "Privada",
-              fundada: u.foundedYear,
-              sitio_web: u.website,
-              cantidad_carreras: u._count.careers,
-              cantidad_reseñas: u._count.reviews,
-            })),
-            null, 2
-          ),
+          text: JSON.stringify({
+            total,
+            pagina,
+            por_pagina,
+            paginas_totales: Math.ceil(total / por_pagina),
+            universidades: universidades.map((u) => {
+              const rating =
+                u.reviews.length > 0
+                  ? parseFloat((u.reviews.reduce((s, r) => s + r.rating, 0) / u.reviews.length).toFixed(1))
+                  : null
+              return {
+                id: u.id,
+                nombre: u.name,
+                codigo: u.shortCode,
+                ciudad: u.city,
+                provincia: u.province,
+                tipo: u.type === "PUBLIC" ? "Pública" : "Privada",
+                fundada: u.foundedYear,
+                sitio_web: u.website,
+                cantidad_carreras: u._count.careers,
+                cantidad_reseñas: u._count.reviews,
+                calificacion_promedio: rating,
+              }
+            }),
+          }, null, 2),
         }],
       }
     }
@@ -71,17 +93,23 @@ export function createMcpServer() {
   server.registerTool(
     "detalle_universidad",
     {
-      description: "Devuelve el detalle completo de una universidad, incluyendo sus carreras y reseñas.",
+      description: "Detalle completo de una universidad: descripción, carreras y reseñas. Usá limite_carreras si la universidad tiene muchas carreras.",
       inputSchema: {
         id: z.string().describe("ID de la universidad"),
+        limite_carreras: z.number().int().min(1).max(200).optional().describe("Máximo de carreras a incluir (por defecto 50)"),
       },
     },
-    async ({ id }) => {
+    async ({ id, limite_carreras = 50 }) => {
       const universidad = await prisma.university.findUnique({
         where: { id },
         include: {
-          careers: { include: { area: true }, orderBy: { name: "asc" } },
+          careers: {
+            include: { area: true },
+            orderBy: { name: "asc" },
+            take: limite_carreras,
+          },
           reviews: { orderBy: { createdAt: "desc" } },
+          _count: { select: { careers: true } },
         },
       })
 
@@ -91,7 +119,7 @@ export function createMcpServer() {
 
       const promedioReseñas =
         universidad.reviews.length > 0
-          ? universidad.reviews.reduce((sum, r) => sum + r.rating, 0) / universidad.reviews.length
+          ? parseFloat((universidad.reviews.reduce((sum, r) => sum + r.rating, 0) / universidad.reviews.length).toFixed(1))
           : null
 
       return {
@@ -106,13 +134,15 @@ export function createMcpServer() {
             fundada: universidad.foundedYear,
             descripcion: universidad.description,
             sitio_web: universidad.website,
-            calificacion_promedio: promedioReseñas ? promedioReseñas.toFixed(1) : null,
+            calificacion_promedio: promedioReseñas,
+            total_carreras: universidad._count.careers,
+            carreras_mostradas: universidad.careers.length,
             carreras: universidad.careers.map((c) => ({
               id: c.id,
               nombre: c.name,
               area: c.area.name,
               duracion: `${c.durationYears} años`,
-              modalidad: c.modality,
+              modalidad: MODALITY_LABEL[c.modality] ?? c.modality,
               titulo: c.degreeTitle,
             })),
             reseñas: universidad.reviews.map((r) => ({
@@ -130,53 +160,80 @@ export function createMcpServer() {
   server.registerTool(
     "listar_carreras",
     {
-      description: "Lista carreras con filtros opcionales por área, modalidad o universidad.",
+      description: "Lista carreras con filtros opcionales. Soporta paginación para manejar el dataset completo.",
       inputSchema: {
-        area: z.string().optional().describe("Nombre del área (ej: Ingeniería, Salud)"),
+        area: z.string().optional().describe("Nombre del área (ej: Ciencias Aplicadas, Ciencias de la Salud)"),
         modalidad: z.enum(["PRESENCIAL", "HIBRIDO", "ONLINE"]).optional(),
         universidad: z.string().optional().describe("Nombre parcial de la universidad"),
+        provincia: z.string().optional().describe("Filtrar por provincia de la universidad"),
+        tipo_universidad: z.enum(["PUBLIC", "PRIVATE"]).optional().describe("Tipo de universidad"),
+        duracion_max: z.number().int().min(1).max(10).optional().describe("Duración máxima en años"),
+        pagina: z.number().int().min(1).optional().describe("Número de página (por defecto 1)"),
+        por_pagina: z.number().int().min(1).max(100).optional().describe("Resultados por página (por defecto 50)"),
       },
     },
-    async ({ area, modalidad, universidad }) => {
-      const carreras = await prisma.career.findMany({
-        where: {
-          ...(modalidad && { modality: modalidad }),
-          ...(area && { area: { name: { contains: area } } }),
-          ...(universidad && { university: { name: { contains: universidad } } }),
-        },
-        include: {
-          university: { select: { name: true, city: true, province: true } },
-          area: { select: { name: true } },
-          reviews: { select: { rating: true } },
-        },
-        orderBy: { name: "asc" },
-      })
+    async ({ area, modalidad, universidad, provincia, tipo_universidad, duracion_max, pagina = 1, por_pagina = 50 }) => {
+      const where = {
+        ...(modalidad && { modality: modalidad }),
+        ...(area && { area: { name: { contains: area } } }),
+        ...(duracion_max && { durationYears: { lte: duracion_max } }),
+        ...((universidad || provincia || tipo_universidad) && {
+          university: {
+            ...(universidad && { name: { contains: universidad } }),
+            ...(provincia && { province: { contains: provincia } }),
+            ...(tipo_universidad && { type: tipo_universidad }),
+          },
+        }),
+      }
+
+      const [carreras, total] = await Promise.all([
+        prisma.career.findMany({
+          where,
+          include: {
+            university: { select: { name: true, city: true, province: true, type: true, reviews: { select: { rating: true } } } },
+            area: { select: { name: true } },
+            reviews: { select: { rating: true } },
+          },
+          orderBy: { name: "asc" },
+          skip: (pagina - 1) * por_pagina,
+          take: por_pagina,
+        }),
+        prisma.career.count({ where }),
+      ])
 
       return {
         content: [{
           type: "text",
-          text: JSON.stringify(
-            carreras.map((c) => {
-              const promedio =
+          text: JSON.stringify({
+            total,
+            pagina,
+            por_pagina,
+            paginas_totales: Math.ceil(total / por_pagina),
+            carreras: carreras.map((c) => {
+              const ratingCarrera =
                 c.reviews.length > 0
-                  ? (c.reviews.reduce((s, r) => s + r.rating, 0) / c.reviews.length).toFixed(1)
+                  ? parseFloat((c.reviews.reduce((s, r) => s + r.rating, 0) / c.reviews.length).toFixed(1))
+                  : null
+              const ratingUniversidad =
+                c.university.reviews.length > 0
+                  ? parseFloat((c.university.reviews.reduce((s, r) => s + r.rating, 0) / c.university.reviews.length).toFixed(1))
                   : null
               return {
                 id: c.id,
                 nombre: c.name,
                 universidad: c.university.name,
-                ciudad: `${c.university.city}, ${c.university.province}`,
+                tipo_universidad: c.university.type === "PUBLIC" ? "Pública" : "Privada",
+                ubicacion: `${c.university.city}, ${c.university.province}`,
                 area: c.area.name,
                 duracion: `${c.durationYears} años`,
-                modalidad: c.modality,
+                modalidad: MODALITY_LABEL[c.modality] ?? c.modality,
                 titulo: c.degreeTitle,
-                estudiantes: c.studentCount,
-                calificacion: promedio,
-                reseñas: c.reviews.length,
+                calificacion_carrera: ratingCarrera,
+                calificacion_universidad: ratingUniversidad,
+                cantidad_reseñas: c.reviews.length,
               }
             }),
-            null, 2
-          ),
+          }, null, 2),
         }],
       }
     }
@@ -185,7 +242,7 @@ export function createMcpServer() {
   server.registerTool(
     "detalle_carrera",
     {
-      description: "Devuelve el detalle completo de una carrera, incluyendo plan de estudios y reseñas.",
+      description: "Detalle completo de una carrera: plan de estudios, reseñas e información de la universidad.",
       inputSchema: {
         id: z.string().describe("ID de la carrera"),
       },
@@ -194,7 +251,7 @@ export function createMcpServer() {
       const carrera = await prisma.career.findUnique({
         where: { id },
         include: {
-          university: true,
+          university: { include: { reviews: { select: { rating: true } } } },
           area: true,
           studyPlans: {
             include: { subjects: { orderBy: [{ semester: "asc" }, { name: "asc" }] } },
@@ -208,9 +265,14 @@ export function createMcpServer() {
         return { content: [{ type: "text", text: "Carrera no encontrada." }] }
       }
 
-      const promedio =
+      const ratingCarrera =
         carrera.reviews.length > 0
-          ? (carrera.reviews.reduce((s, r) => s + r.rating, 0) / carrera.reviews.length).toFixed(1)
+          ? parseFloat((carrera.reviews.reduce((s, r) => s + r.rating, 0) / carrera.reviews.length).toFixed(1))
+          : null
+
+      const ratingUniversidad =
+        carrera.university.reviews.length > 0
+          ? parseFloat((carrera.university.reviews.reduce((s, r) => s + r.rating, 0) / carrera.university.reviews.length).toFixed(1))
           : null
 
       return {
@@ -220,18 +282,21 @@ export function createMcpServer() {
             id: carrera.id,
             nombre: carrera.name,
             universidad: {
+              id: carrera.university.id,
               nombre: carrera.university.name,
               ciudad: carrera.university.city,
               provincia: carrera.university.province,
-              tipo: carrera.university.type,
+              tipo: carrera.university.type === "PUBLIC" ? "Pública" : "Privada",
+              calificacion_promedio: ratingUniversidad,
             },
             area: carrera.area.name,
             titulo_otorgado: carrera.degreeTitle,
             duracion: `${carrera.durationYears} años`,
-            modalidad: carrera.modality,
+            modalidad: MODALITY_LABEL[carrera.modality] ?? carrera.modality,
             descripcion: carrera.description,
             estudiantes_inscritos: carrera.studentCount,
-            calificacion_promedio: promedio,
+            calificacion_promedio: ratingCarrera,
+            cantidad_reseñas: carrera.reviews.length,
             plan_de_estudios: carrera.studyPlans.map((p) => ({
               año: p.year,
               materias: p.subjects.map((s) => ({
@@ -252,14 +317,84 @@ export function createMcpServer() {
   )
 
   server.registerTool(
-    "buscar",
+    "comparar_carreras",
     {
-      description: "Busca universidades y carreras por texto libre.",
+      description: "Compara entre 2 y 4 carreras lado a lado. Útil para ayudar a elegir entre opciones similares.",
       inputSchema: {
-        query: z.string().describe("Texto a buscar"),
+        ids: z.array(z.string()).min(2).max(4).describe("Lista de IDs de carreras a comparar"),
       },
     },
-    async ({ query }) => {
+    async ({ ids }) => {
+      const carreras = await prisma.career.findMany({
+        where: { id: { in: ids } },
+        include: {
+          university: { include: { reviews: { select: { rating: true } } } },
+          area: true,
+          studyPlans: {
+            include: { subjects: true },
+            orderBy: { year: "asc" },
+          },
+          reviews: { select: { rating: true } },
+        },
+      })
+
+      if (carreras.length === 0) {
+        return { content: [{ type: "text", text: "No se encontró ninguna de las carreras indicadas." }] }
+      }
+
+      const ordenadas = ids.map((id) => carreras.find((c) => c.id === id)).filter(Boolean) as typeof carreras
+
+      const comparacion = ordenadas.map((c) => {
+        const ratingCarrera =
+          c.reviews.length > 0
+            ? parseFloat((c.reviews.reduce((s, r) => s + r.rating, 0) / c.reviews.length).toFixed(1))
+            : null
+        const ratingUniversidad =
+          c.university.reviews.length > 0
+            ? parseFloat((c.university.reviews.reduce((s, r) => s + r.rating, 0) / c.university.reviews.length).toFixed(1))
+            : null
+        const totalMaterias = c.studyPlans.reduce((s, p) => s + p.subjects.length, 0)
+
+        return {
+          id: c.id,
+          nombre: c.name,
+          universidad: c.university.name,
+          tipo_universidad: c.university.type === "PUBLIC" ? "Pública" : "Privada",
+          ubicacion: `${c.university.city}, ${c.university.province}`,
+          area: c.area.name,
+          titulo_otorgado: c.degreeTitle,
+          duracion: `${c.durationYears} años`,
+          modalidad: MODALITY_LABEL[c.modality] ?? c.modality,
+          calificacion_carrera: ratingCarrera,
+          calificacion_universidad: ratingUniversidad,
+          reseñas_carrera: c.reviews.length,
+          total_materias: totalMaterias,
+          plan_de_estudios: c.studyPlans.map((p) => ({
+            año: p.year,
+            materias: p.subjects.map((s) => s.name),
+          })),
+        }
+      })
+
+      return {
+        content: [{
+          type: "text",
+          text: JSON.stringify({ comparacion }, null, 2),
+        }],
+      }
+    }
+  )
+
+  server.registerTool(
+    "buscar",
+    {
+      description: "Búsqueda libre sobre universidades y carreras por nombre, descripción o ubicación.",
+      inputSchema: {
+        query: z.string().describe("Texto a buscar"),
+        limite: z.number().int().min(1).max(50).optional().describe("Máximo de resultados por entidad (por defecto 15)"),
+      },
+    },
+    async ({ query, limite = 15 }) => {
       const [universidades, carreras] = await Promise.all([
         prisma.university.findMany({
           where: {
@@ -267,24 +402,35 @@ export function createMcpServer() {
               { name: { contains: query } },
               { city: { contains: query } },
               { province: { contains: query } },
+              { description: { contains: query } },
             ],
           },
-          select: { id: true, name: true, city: true, province: true, type: true },
-          take: 5,
+          select: {
+            id: true,
+            name: true,
+            city: true,
+            province: true,
+            type: true,
+            reviews: { select: { rating: true } },
+          },
+          take: limite,
+          orderBy: { name: "asc" },
         }),
         prisma.career.findMany({
           where: {
             OR: [
               { name: { contains: query } },
               { degreeTitle: { contains: query } },
+              { description: { contains: query } },
               { university: { name: { contains: query } } },
             ],
           },
           include: {
-            university: { select: { name: true } },
+            university: { select: { name: true, province: true } },
             area: { select: { name: true } },
           },
-          take: 10,
+          take: limite,
+          orderBy: { name: "asc" },
         }),
       ])
 
@@ -292,16 +438,24 @@ export function createMcpServer() {
         content: [{
           type: "text",
           text: JSON.stringify({
-            universidades: universidades.map((u) => ({
-              id: u.id,
-              nombre: u.name,
-              ubicacion: `${u.city}, ${u.province}`,
-              tipo: u.type === "PUBLIC" ? "Pública" : "Privada",
-            })),
+            universidades: universidades.map((u) => {
+              const rating =
+                u.reviews.length > 0
+                  ? parseFloat((u.reviews.reduce((s, r) => s + r.rating, 0) / u.reviews.length).toFixed(1))
+                  : null
+              return {
+                id: u.id,
+                nombre: u.name,
+                ubicacion: `${u.city}, ${u.province}`,
+                tipo: u.type === "PUBLIC" ? "Pública" : "Privada",
+                calificacion_promedio: rating,
+              }
+            }),
             carreras: carreras.map((c) => ({
               id: c.id,
               nombre: c.name,
               universidad: c.university.name,
+              provincia: c.university.province,
               area: c.area.name,
             })),
           }, null, 2),
@@ -313,7 +467,7 @@ export function createMcpServer() {
   server.registerTool(
     "listar_areas",
     {
-      description: "Lista todas las áreas de conocimiento disponibles.",
+      description: "Lista todas las áreas de conocimiento disponibles con la cantidad de carreras por área.",
       inputSchema: {},
     },
     async () => {
@@ -337,13 +491,14 @@ export function createMcpServer() {
   server.registerTool(
     "estadisticas_orientacion_vocacional",
     {
-      description: "Devuelve estadísticas agregadas del test de orientación vocacional: total de respuestas, ranking de áreas más elegidas como perfil dominante, puntaje promedio por área y distribución mensual.",
+      description: "Estadísticas agregadas del test vocacional: ranking de áreas más elegidas, puntaje promedio por área y distribución mensual.",
       inputSchema: {},
     },
     async () => {
-      const resultados = await prisma.vocationalResult.findMany({
-        orderBy: { createdAt: "asc" },
-      })
+      const [resultados, areasDB] = await Promise.all([
+        prisma.vocationalResult.findMany({ orderBy: { createdAt: "asc" } }),
+        getAreaNames(),
+      ])
 
       const total = resultados.length
 
@@ -351,7 +506,7 @@ export function createMcpServer() {
         return {
           content: [{
             type: "text",
-            text: `No hay respuestas registradas aún.\n\nÁreas evaluadas por el test: ${AREAS_VOCACIONALES.join(", ")}.`,
+            text: `No hay respuestas registradas aún.\n\nÁreas evaluadas por el test: ${areasDB.join(", ")}.`,
           }],
         }
       }
@@ -394,7 +549,7 @@ export function createMcpServer() {
         content: [
           {
             type: "text",
-            text: `Estadísticas basadas en ${total} respuesta${total !== 1 ? "s" : ""} del test de orientación vocacional.\nÁreas evaluadas: ${AREAS_VOCACIONALES.join(", ")}.`,
+            text: `Estadísticas basadas en ${total} respuesta${total !== 1 ? "s" : ""} del test.\nÁreas evaluadas: ${areasDB.join(", ")}.`,
           },
           {
             type: "text",
@@ -413,30 +568,33 @@ export function createMcpServer() {
   server.registerTool(
     "listar_resultados_vocacionales",
     {
-      description: "Lista resultados individuales del test de orientación vocacional. Podés filtrar por área dominante y limitar la cantidad de resultados.",
+      description: "Lista resultados individuales del test vocacional. Filtrá por área dominante y limitá la cantidad.",
       inputSchema: {
-        topArea: z.string().optional().describe("Filtrar por área dominante (ej: 'Ingeniería y Tecnología', 'Ciencias de la Salud')"),
-        limite: z.number().int().min(1).max(100).optional().describe("Cantidad máxima de resultados a devolver (por defecto 20)"),
+        topArea: z.string().optional().describe("Filtrar por área dominante (ej: 'Ciencias Aplicadas', 'Ciencias de la Salud')"),
+        limite: z.number().int().min(1).max(100).optional().describe("Cantidad máxima de resultados (por defecto 20)"),
       },
     },
     async ({ topArea, limite }) => {
-      const resultados = await prisma.vocationalResult.findMany({
-        where: {
-          ...(topArea && { topArea: { contains: topArea } }),
-        },
-        orderBy: { createdAt: "desc" },
-        take: limite ?? 20,
-      })
+      const [resultados, areasDB] = await Promise.all([
+        prisma.vocationalResult.findMany({
+          where: {
+            ...(topArea && { topArea: { contains: topArea } }),
+          },
+          orderBy: { createdAt: "desc" },
+          take: limite ?? 20,
+        }),
+        getAreaNames(),
+      ])
 
       const resumen = topArea
         ? `Se encontraron ${resultados.length} resultado${resultados.length !== 1 ? "s" : ""} para el área "${topArea}".`
-        : `Se muestran ${resultados.length} resultado${resultados.length !== 1 ? "s" : ""} (ordenados del más reciente al más antiguo).`
+        : `Se muestran ${resultados.length} resultado${resultados.length !== 1 ? "s" : ""} (del más reciente al más antiguo).`
 
       return {
         content: [
           {
             type: "text",
-            text: `${resumen}\nÁreas disponibles para filtrar: ${AREAS_VOCACIONALES.join(", ")}.`,
+            text: `${resumen}\nÁreas disponibles para filtrar: ${areasDB.join(", ")}.`,
           },
           {
             type: "text",
