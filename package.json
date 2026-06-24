@@ -9,7 +9,9 @@
     "start": "next start",
     "lint": "next lint",
     "postinstall": "prisma generate",
+    "db:bootstrap": "prisma db push && tsx scripts/import-siu-data.ts && tsx scripts/seed-reviews.ts",
     "db:seed": "tsx scripts/import-siu-data.ts",
+    "db:seed-reviews": "tsx scripts/seed-reviews.ts",
     "db:setup": "tsx scripts/setup-turso.ts",
     "scrape:siu": "tsx scripts/scrape-siu.ts",
     "scrape:siu:transform": "tsx scripts/transform-siu-data.ts"

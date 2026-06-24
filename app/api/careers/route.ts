@@ -20,7 +20,9 @@ export async function GET(req: NextRequest) {
       ],
     },
     include: {
-      university: { select: { id: true, name: true, city: true, province: true, type: true } },
+      university: {
+        select: { id: true, name: true, city: true, province: true, type: true, reviews: { select: { rating: true } } },
+      },
       area: { select: { id: true, name: true } },
       reviews: { select: { rating: true } },
     },
@@ -35,12 +37,17 @@ export async function GET(req: NextRequest) {
     : careers;
 
   const data = filtered.map((c) => {
-    const { reviews, ...rest } = c;
+    const { reviews, university, ...rest } = c;
+    const { reviews: uReviews, ...uRest } = university;
     const rating =
       reviews.length > 0
         ? Math.round((reviews.reduce((s, r) => s + r.rating, 0) / reviews.length) * 10) / 10
         : null;
-    return { ...rest, rating };
+    const universityRating =
+      uReviews.length > 0
+        ? Math.round((uReviews.reduce((s, r) => s + r.rating, 0) / uReviews.length) * 10) / 10
+        : null;
+    return { ...rest, rating, university: { ...uRest, rating: universityRating } };
   });
 
   const total = data.length;

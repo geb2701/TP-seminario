@@ -77,18 +77,31 @@ async function main() {
     console.log("Reset complete.");
   }
 
+  // Estrategia rápida: en vez de ~2 queries por carrera (findFirst + create),
+  // que para 7k+ carreras son miles de round-trips secuenciales, precargamos las
+  // comprobaciones de existencia en memoria y hacemos inserciones masivas con
+  // createMany por lotes. Idempotente: se saltean las carreras ya presentes.
+
   const areaCache = new Map<string, string>(); // areaName -> id
 
+  // 1. Áreas: aseguramos las distintas (un puñado) y cacheamos sus ids.
+  const areaNames = [...new Set(universities.flatMap((u) => u.careers.map((c) => c.areaName)))];
+  for (const name of areaNames) {
+    const area = await prisma.area.upsert({ where: { name }, update: {}, create: { name } });
+    areaCache.set(name, area.id);
+  }
+
+  // 2. Universidades (~130): una sola lectura previa, luego create/update. Mapa name -> id.
+  const existingUnis = await prisma.university.findMany();
+  const uniByName = new Map(existingUnis.map((u) => [u.name, u]));
+  const uniIdByName = new Map<string, string>();
   let universitiesCreated = 0;
   let universitiesUpdated = 0;
-  let careersCreated = 0;
-  let careersSkippedExisting = 0;
 
   for (const uniIn of universities) {
-    let university = await prisma.university.findFirst({ where: { name: uniIn.name } });
-
-    if (!university) {
-      university = await prisma.university.create({
+    const existing = uniByName.get(uniIn.name);
+    if (!existing) {
+      const created = await prisma.university.create({
         data: {
           name: uniIn.name,
           city: uniIn.city ?? "Desconocida",
@@ -97,54 +110,71 @@ async function main() {
           website: uniIn.website,
         },
       });
+      uniIdByName.set(uniIn.name, created.id);
       universitiesCreated++;
     } else {
       await prisma.university.update({
-        where: { id: university.id },
+        where: { id: existing.id },
         data: {
-          city: uniIn.city ?? university.city,
-          province: uniIn.province ?? university.province,
+          city: uniIn.city ?? existing.city,
+          province: uniIn.province ?? existing.province,
           type: uniIn.type,
-          website: uniIn.website ?? university.website,
+          website: uniIn.website ?? existing.website,
         },
       });
+      uniIdByName.set(uniIn.name, existing.id);
       universitiesUpdated++;
     }
+  }
 
-    for (const careerIn of uniIn.careers) {
-      let areaId = areaCache.get(careerIn.areaName);
-      if (!areaId) {
-        const area = await prisma.area.upsert({
-          where: { name: careerIn.areaName },
-          update: {},
-          create: { name: careerIn.areaName },
-        });
-        areaId = area.id;
-        areaCache.set(careerIn.areaName, areaId);
-      }
+  // 3. Carreras existentes -> Set de claves (una sola lectura) para idempotencia.
+  const existingCareers = await prisma.career.findMany({
+    select: { universityId: true, name: true, modality: true },
+  });
+  const seen = new Set(existingCareers.map((c) => `${c.universityId}::${c.name}::${c.modality}`));
 
-      const existingCareer = await prisma.career.findFirst({
-        where: { universityId: university.id, name: careerIn.name, modality: careerIn.modality },
-      });
-      if (existingCareer) {
+  // 4. Armamos las filas nuevas, salteando las ya presentes (y duplicados del propio JSON).
+  type CareerRow = {
+    name: string;
+    durationYears: number;
+    degreeTitle: string;
+    modality: "PRESENCIAL" | "ONLINE" | "HIBRIDO";
+    description: string;
+    studentCount: number;
+    universityId: string;
+    areaId: string;
+  };
+  const toCreate: CareerRow[] = [];
+  let careersSkippedExisting = 0;
+
+  for (const uniIn of universities) {
+    const universityId = uniIdByName.get(uniIn.name)!;
+    for (const c of uniIn.careers) {
+      const key = `${universityId}::${c.name}::${c.modality}`;
+      if (seen.has(key)) {
         careersSkippedExisting++;
         continue;
       }
-
-      await prisma.career.create({
-        data: {
-          name: careerIn.name,
-          durationYears: careerIn.durationYears,
-          degreeTitle: careerIn.degreeTitle,
-          modality: careerIn.modality,
-          description: careerIn.description,
-          studentCount: careerIn.studentCount,
-          universityId: university.id,
-          areaId,
-        },
+      seen.add(key);
+      toCreate.push({
+        name: c.name,
+        durationYears: c.durationYears,
+        degreeTitle: c.degreeTitle,
+        modality: c.modality,
+        description: c.description,
+        studentCount: c.studentCount,
+        universityId,
+        areaId: areaCache.get(c.areaName)!,
       });
-      careersCreated++;
     }
+  }
+
+  // 5. Inserción masiva por lotes.
+  const CHUNK = 500;
+  let careersCreated = 0;
+  for (let i = 0; i < toCreate.length; i += CHUNK) {
+    const res = await prisma.career.createMany({ data: toCreate.slice(i, i + CHUNK) });
+    careersCreated += res.count;
   }
 
   console.log("\n--- Import summary ---");

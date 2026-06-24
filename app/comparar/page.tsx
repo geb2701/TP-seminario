@@ -158,7 +158,6 @@ export default function ComparePage() {
   const shortName = (name: string) => name.length > 18 ? name.substring(0, 16) + "…" : name
 
   const durationData = compared?.map((c) => ({ name: c.name, shortName: shortName(c.name), value: c.durationYears })) ?? []
-  const ratingData = compared?.map((c) => ({ name: c.name, shortName: shortName(c.name), value: c.rating })) ?? []
 
   const allYears = useMemo(() => {
     if (!compared) return []
@@ -172,6 +171,11 @@ export default function ComparePage() {
     shortName: shortName(c.name),
     value: c.studyPlans.reduce((sum, plan) => sum + plan.subjects.length, 0),
   })) ?? []
+
+  // El dataset actual no trae plan de estudios (materias): ocultamos ese
+  // gráfico cuando no hay datos. La "Calificación promedio" (notas académicas)
+  // no existe en el dataset, así que se quita del todo.
+  const hasSubjects = subjectsData.some((d) => d.value > 0)
 
   return (
     <div className="space-y-8 p-6 lg:p-8">
@@ -448,18 +452,14 @@ export default function ComparePage() {
                       tickFormatter={(v) => String(v)}
                       domain={[0, 7]}
                     />
-                    <MetricBarChart
-                      title="Cantidad de materias"
-                      data={subjectsData}
-                      formatter={(v) => `${v} materia${v !== 1 ? "s" : ""}`}
-                      tickFormatter={(v) => String(v)}
-                    />
-                    <MetricBarChart
-                      title="Calificación promedio"
-                      data={ratingData}
-                      formatter={(v) => `${v} / 5`}
-                      domain={[0, 5]}
-                    />
+                    {hasSubjects && (
+                      <MetricBarChart
+                        title="Cantidad de materias"
+                        data={subjectsData}
+                        formatter={(v) => `${v} materia${v !== 1 ? "s" : ""}`}
+                        tickFormatter={(v) => String(v)}
+                      />
+                    )}
                   </div>
                 </AccordionContent>
               </AccordionItem>
