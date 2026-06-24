@@ -523,6 +523,71 @@ function getGlobalTotal(top3Areas: string[]): number {
 const MIN_RESULTS = 4
 const AFFINITY_THRESHOLD = 50
 
+type PresetProfileId = "VALENTINA" | "TOMAS"
+
+const PRESET_PROFILES: Record<
+  PresetProfileId,
+  {
+    personName: string
+    primaryArea: string
+    locationHint: string
+    priority: "PRESTIGE" | "EMPLOYMENT" | "COST" | "LOCATION"
+    type: "PUBLIC" | "PRIVATE" | "ANY"
+    modality: "PRESENCIAL" | "HIBRIDO" | "ONLINE" | "ANY"
+    duration: "4" | "5" | "6"
+    mobility: "RELOCATE" | "COMMUTE" | "LOCAL"
+  }
+> = {
+  VALENTINA: {
+    personName: "Valentina",
+    primaryArea: "Ciencias Aplicadas",
+    locationHint: "Buenos Aires",
+    priority: "PRESTIGE",
+    type: "ANY",
+    modality: "PRESENCIAL",
+    duration: "5",
+    mobility: "COMMUTE",
+  },
+  TOMAS: {
+    personName: "Tomas",
+    primaryArea: "Ciencias de la Salud",
+    locationHint: "Cordoba",
+    priority: "EMPLOYMENT",
+    type: "ANY",
+    modality: "PRESENCIAL",
+    duration: "6",
+    mobility: "LOCAL",
+  },
+}
+
+function normalizeText(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .trim()
+}
+
+function buildPhase1AnswersForArea(primaryArea: string): Record<number, number> {
+  const answers: Record<number, number> = {}
+  PHASE1_QUESTIONS.forEach((q, i) => {
+    const w = q.weights[primaryArea] ?? 0
+    answers[i] = w >= 0.9 ? 4 : w >= 0.6 ? 3 : w >= 0.3 ? 2 : 1
+  })
+  return answers
+}
+
+function buildPhase2AnswersForTop3(top3Areas: string[], primaryArea: string): Record<string, number> {
+  const answers: Record<string, number> = {}
+  top3Areas.forEach((area, ai) => {
+    const base = area === primaryArea ? 4 : 2
+    ;(AREA_CAREER_QUESTIONS[area] ?? []).forEach((_, qi) => {
+      answers[`${ai}_${qi}`] = base
+    })
+  })
+  return answers
+}
+
 // ─── Generación de respuestas aleatorias (testing) ───────────────────────────
 
 // Genera un perfil completo con respuestas aleatorias, listo para guardar con
@@ -778,6 +843,83 @@ export function VocationalTest({
     finally { setLoadingCareers(false) }
   }
 
+  async function applyPresetProfile(presetId: PresetProfileId) {
+    if (areas.length === 0 || locations.length === 0) return
+
+    const preset = PRESET_PROFILES[presetId]
+    const p1 = buildPhase1AnswersForArea(preset.primaryArea)
+    const scores = calcPhase1Scores(p1)
+    const sorted = Object.entries(scores).sort((a, b) => b[1] - a[1])
+    const top3 = sorted.slice(0, 3).map(([name]) => name)
+    const topArea = sorted[0]?.[0] ?? preset.primaryArea
+    const p2 = buildPhase2AnswersForTop3(top3, preset.primaryArea)
+
+    const normalizedHint = normalizeText(preset.locationHint)
+    const matchingLocation =
+      locations.find((loc) => normalizeText(loc) === normalizedHint) ??
+      locations.find((loc) => normalizeText(loc).includes(normalizedHint)) ??
+      locations[0]
+
+    const p3: Record<string, string> = {
+      modality: preset.modality,
+      type: preset.type,
+      duration: preset.duration,
+      mobility: preset.mobility,
+      priority: preset.priority,
+      location: matchingLocation,
+    }
+
+    const computed = calcCareerScores(p2, top3)
+
+    setPhase1Answers(p1)
+    setPhase2Answers(p2)
+    setPhase3Answers(p3)
+    setTop3Areas(top3)
+    setCareerScores(computed)
+    setSavedScores(sorted)
+    setPersonName(preset.personName)
+
+    saveProfile({
+      scores,
+      topArea,
+      personName: preset.personName,
+      phase2Answers: p2,
+      phase3Answers: p3,
+    })
+    setSaved(true)
+
+    setLoadingCareers(true)
+    const top3Ids = top3
+      .map((name) => areas.find((a) => a.name === name)?.id)
+      .filter(Boolean) as string[]
+
+    try {
+      const results = await Promise.all(
+        top3Ids.map((id) =>
+          fetch(`/api/careers?areaId=${id}&pageSize=10000`)
+            .then((r) => r.json())
+            .then((j) => j.data as CareerResult[])
+        )
+      )
+      const merged: CareerResult[] = []
+      const seen = new Set<string>()
+      for (const list of results) {
+        for (const c of list) {
+          if (!seen.has(c.id)) {
+            seen.add(c.id)
+            merged.push(c)
+          }
+        }
+      }
+      setCareers(merged)
+      setStep(RESULT_STEP)
+    } catch {
+      // silently ignore
+    } finally {
+      setLoadingCareers(false)
+    }
+  }
+
   // Auto-carga resultados guardados en cuanto están disponibles los datos de áreas
   useEffect(() => {
     if (!forceIntro && hydrated && profile && areas.length > 0 && step === 0) {
@@ -837,23 +979,64 @@ export function VocationalTest({
     const allAnswered = pageQs.every((_, i) => phase1Answers[start + i] !== undefined)
 
     return (
-      <QuestionScreen
-        absoluteStart={start}
-        globalTotal={getGlobalTotal(top3Areas)}
-        questions={pageQs.map((q) => q.text)}
-        answers={Object.fromEntries(
-          Object.entries(phase1Answers)
-            .filter(([k]) => Number(k) >= start && Number(k) < start + PHASE1_PER_PAGE)
-            .map(([k, v]) => [Number(k) - start, v])
+      <>
+        {step === 1 && (
+          <div className="max-w-2xl mx-auto px-4 pt-8 pb-2">
+            <div className="rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/5 via-card to-card p-4 shadow-sm space-y-3">
+              <div className="space-y-1">
+                <p className="text-sm font-semibold">Perfiles de prueba (autocompletado)</p>
+                <p className="text-xs text-muted-foreground">
+                  Elegí un perfil para completar el test automáticamente y ver resultados al instante.
+                </p>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => applyPresetProfile("VALENTINA")}
+                  disabled={areas.length === 0 || locations.length === 0}
+                  className="group justify-start h-auto rounded-xl border-primary/20 bg-card/80 px-4 py-3 hover:border-primary/40 hover:bg-primary/5 transition-all"
+                >
+                  <div className="text-left leading-tight">
+                    <p className="text-sm font-semibold">Valentina</p>
+                    <p className="text-xs text-muted-foreground">Tecnología · Prestigio · Buenos Aires</p>
+                  </div>
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => applyPresetProfile("TOMAS")}
+                  disabled={areas.length === 0 || locations.length === 0}
+                  className="group justify-start h-auto rounded-xl border-primary/20 bg-card/80 px-4 py-3 hover:border-primary/40 hover:bg-primary/5 transition-all"
+                >
+                  <div className="text-left leading-tight">
+                    <p className="text-sm font-semibold">Tomas</p>
+                    <p className="text-xs text-muted-foreground">Ciencias de la Salud · Sin prestigio · Córdoba</p>
+                  </div>
+                </Button>
+              </div>
+            </div>
+          </div>
         )}
-        allAnswered={allAnswered}
-        isLast={false}
-        onAnswer={(qi, val) => setPhase1Answers((prev) => ({ ...prev, [start + qi]: val }))}
-        onNext={() => (step < P1 ? setStep(step + 1) : advanceToPhase2())}
-        onBack={() => {
-          if (skipIntro && step === 1) { onClose?.() } else { setStep(step - 1) }
-        }}
-      />
+
+        <QuestionScreen
+          absoluteStart={start}
+          globalTotal={getGlobalTotal(top3Areas)}
+          questions={pageQs.map((q) => q.text)}
+          answers={Object.fromEntries(
+            Object.entries(phase1Answers)
+              .filter(([k]) => Number(k) >= start && Number(k) < start + PHASE1_PER_PAGE)
+              .map(([k, v]) => [Number(k) - start, v])
+          )}
+          allAnswered={allAnswered}
+          isLast={false}
+          onAnswer={(qi, val) => setPhase1Answers((prev) => ({ ...prev, [start + qi]: val }))}
+          onNext={() => (step < P1 ? setStep(step + 1) : advanceToPhase2())}
+          onBack={() => {
+            if (skipIntro && step === 1) { onClose?.() } else { setStep(step - 1) }
+          }}
+        />
+      </>
     )
   }
 
