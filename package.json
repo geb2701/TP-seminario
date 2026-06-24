@@ -4,12 +4,15 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:local": "cross-env TURSO_DATABASE_URL=file:./prisma/dev.db TURSO_AUTH_TOKEN= next dev",
     "build": "prisma generate && next build",
     "start": "next start",
     "lint": "next lint",
     "postinstall": "prisma generate",
-    "db:seed": "tsx scripts/seed.ts",
-    "db:setup": "tsx scripts/setup-turso.ts"
+    "db:seed": "tsx scripts/import-siu-data.ts",
+    "db:setup": "tsx scripts/setup-turso.ts",
+    "scrape:siu": "tsx scripts/scrape-siu.ts",
+    "scrape:siu:transform": "tsx scripts/transform-siu-data.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",
@@ -46,9 +49,11 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "autoprefixer": "^10.4.21",
+    "cross-env": "^10.1.0",
     "dotenv": "^17.4.2",
     "eslint": "^9",
     "eslint-config-next": "^16.2.4",
+    "playwright": "^1.61.0",
     "postcss": "^8.5.3",
     "prisma": "^7.8.0",
     "tailwindcss": "^4.2.4",

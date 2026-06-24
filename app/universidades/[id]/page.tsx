@@ -42,7 +42,6 @@ type UniversityCareersResponse = {
       name: string
       modality: string
       durationYears: number
-      studentCount: number
       rating: number | null
       areaId: string | null
       areaName: string

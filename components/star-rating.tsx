@@ -1,6 +1,10 @@
 import { Star } from "lucide-react"
 
-export function StarRating({ rating }: { rating: number }) {
+export function StarRating({ rating }: { rating: number | null }) {
+  if (rating === null) {
+    return <span className="text-sm text-muted-foreground">Sin calificación</span>
+  }
+
   return (
     <div className="flex items-center gap-1">
       {Array.from({ length: 5 }).map((_, i) => (

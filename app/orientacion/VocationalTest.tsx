@@ -28,7 +28,7 @@ import {
 } from "lucide-react"
 import { useVocationalProfile } from "@/hooks/use-vocational-profile"
 import { useCompareCareers, MAX_COMPARE } from "@/hooks/use-compare-careers"
-import { AREA_COLORS, AREA_EMOJIS } from "./constants"
+import { AREA_COLORS, AREA_EMOJIS, getCareerAffinity } from "./constants"
 import { ComparisonPanel, type CompareCareer } from "./ComparisonPanel"
 import { ExportPDFButton } from "@/components/exportar"
 import { CareerDetailPanel, type CareerDetailFull } from "./CareerDetailPanel"
@@ -54,15 +54,17 @@ interface CareerResult {
 
 // ─── Áreas ───────────────────────────────────────────────────────────────────
 
+// Alineadas 1:1 con Area.name en la DB (las 6 "ramas" del SIU — ver
+// scripts/lib/siu-mappings.ts RAMA_TO_AREA). "Sin Rama" no recibe peso en
+// ninguna pregunta de fase 1 a propósito: es la bolsa de carreras no
+// clasificadas del SIU y no debería poder salir como área top.
 const AREAS = [
-  "Ingeniería y Tecnología",
+  "Ciencias Aplicadas",
+  "Ciencias Básicas",
   "Ciencias de la Salud",
-  "Ciencias Económicas",
-  "Derecho y Ciencias Sociales",
-  "Humanidades y Artes",
-  "Ciencias Exactas y Naturales",
-  "Arquitectura y Diseño",
-  "Comunicación y Periodismo",
+  "Ciencias Humanas",
+  "Ciencias Sociales",
+  "Sin Rama",
 ]
 
 // AREA_COLORS y AREA_EMOJIS viven en ./constants (compartidos con el banner de perfil).
@@ -74,90 +76,92 @@ interface Phase1Question {
   weights: Partial<Record<string, number>>
 }
 
+// Pesos remapeados de las 8 áreas originales a las 6 ramas reales del SIU.
+// Cuando dos áreas viejas colapsan en una nueva (p. ej. Ingeniería y
+// Arquitectura -> Ciencias Aplicadas) los pesos se suman y se topean a 1.0.
 const PHASE1_QUESTIONS: Phase1Question[] = [
   {
     text: "Me resulta fácil entender cómo funcionan los aparatos o sistemas tecnológicos.",
-    weights: { "Ingeniería y Tecnología": 1.0, "Ciencias Exactas y Naturales": 0.6 },
+    weights: { "Ciencias Aplicadas": 1.0, "Ciencias Básicas": 0.6 },
   },
   {
     text: "Disfruto ayudando a personas que atraviesan dificultades físicas o emocionales.",
-    weights: { "Ciencias de la Salud": 1.0, "Derecho y Ciencias Sociales": 0.5, "Humanidades y Artes": 0.5 },
+    weights: { "Ciencias de la Salud": 1.0, "Ciencias Sociales": 0.5, "Ciencias Humanas": 0.5 },
   },
   {
     text: "Me gusta analizar números, estadísticas o tendencias para tomar decisiones.",
-    weights: { "Ciencias Económicas": 1.0, "Ciencias Exactas y Naturales": 0.7, "Ingeniería y Tecnología": 0.4 },
+    weights: { "Ciencias Sociales": 1.0, "Ciencias Básicas": 0.7, "Ciencias Aplicadas": 0.4 },
   },
   {
     text: "Soy hábil para expresar mis ideas y convencer a otros con argumentos sólidos.",
-    weights: { "Derecho y Ciencias Sociales": 1.0, "Comunicación y Periodismo": 0.8, "Humanidades y Artes": 0.4 },
+    weights: { "Ciencias Sociales": 1.0, "Ciencias Humanas": 0.4 },
   },
   {
     text: "Me apasiona crear: diseñar objetos, espacios o experiencias visuales.",
-    weights: { "Arquitectura y Diseño": 1.0, "Humanidades y Artes": 0.7, "Ingeniería y Tecnología": 0.3 },
+    weights: { "Ciencias Aplicadas": 1.0, "Ciencias Humanas": 0.7 },
   },
   {
     text: "Me interesa conocer el funcionamiento interno del cuerpo humano o de los seres vivos.",
-    weights: { "Ciencias de la Salud": 1.0, "Ciencias Exactas y Naturales": 0.9 },
+    weights: { "Ciencias de la Salud": 1.0, "Ciencias Básicas": 0.9 },
   },
   {
     text: "Disfruto resolver problemas matemáticos o lógicos que requieren razonamiento abstracto.",
-    weights: { "Ciencias Exactas y Naturales": 1.0, "Ingeniería y Tecnología": 0.8, "Ciencias Económicas": 0.4 },
+    weights: { "Ciencias Básicas": 1.0, "Ciencias Aplicadas": 0.8, "Ciencias Sociales": 0.4 },
   },
   {
     text: "Me gusta planificar, coordinar equipos y optimizar el uso de los recursos disponibles.",
-    weights: { "Ciencias Económicas": 1.0, "Ingeniería y Tecnología": 0.5, "Derecho y Ciencias Sociales": 0.4 },
+    weights: { "Ciencias Sociales": 1.0, "Ciencias Aplicadas": 0.5 },
   },
   {
     text: "Me interesa la historia, la filosofía o las expresiones culturales de distintas sociedades.",
-    weights: { "Humanidades y Artes": 1.0, "Derecho y Ciencias Sociales": 0.6, "Comunicación y Periodismo": 0.3 },
+    weights: { "Ciencias Humanas": 1.0, "Ciencias Sociales": 0.9 },
   },
   {
     text: "Puedo visualizar mentalmente cómo quedaría un espacio o estructura antes de construirla.",
-    weights: { "Arquitectura y Diseño": 1.0, "Ingeniería y Tecnología": 0.5, "Ciencias Exactas y Naturales": 0.3 },
+    weights: { "Ciencias Aplicadas": 1.0, "Ciencias Básicas": 0.3 },
   },
   {
     text: "Me preocupa profundamente la justicia, la igualdad y los derechos de las personas.",
-    weights: { "Derecho y Ciencias Sociales": 1.0, "Humanidades y Artes": 0.5, "Comunicación y Periodismo": 0.5 },
+    weights: { "Ciencias Sociales": 1.0, "Ciencias Humanas": 0.5 },
   },
   {
     text: "Disfruto contar historias, escribir o crear contenido que llegue a mucha gente.",
-    weights: { "Comunicación y Periodismo": 1.0, "Humanidades y Artes": 0.8, "Arquitectura y Diseño": 0.3 },
+    weights: { "Ciencias Sociales": 1.0, "Ciencias Humanas": 0.8, "Ciencias Aplicadas": 0.3 },
   },
   {
     text: "Me gusta experimentar con fenómenos naturales, químicos o físicos en la práctica.",
-    weights: { "Ciencias Exactas y Naturales": 1.0, "Ciencias de la Salud": 0.6, "Ingeniería y Tecnología": 0.3 },
+    weights: { "Ciencias Básicas": 1.0, "Ciencias de la Salud": 0.6, "Ciencias Aplicadas": 0.3 },
   },
   {
     text: "Me motiva identificar oportunidades de negocio y llevar ideas innovadoras al mercado.",
-    weights: { "Ciencias Económicas": 1.0, "Ingeniería y Tecnología": 0.5, "Comunicación y Periodismo": 0.4 },
+    weights: { "Ciencias Sociales": 1.0, "Ciencias Aplicadas": 0.5 },
   },
   {
     text: "Disfruto hablar en público, debatir ideas o entrevistar a otras personas.",
-    weights: { "Comunicación y Periodismo": 1.0, "Derecho y Ciencias Sociales": 0.8, "Humanidades y Artes": 0.4 },
+    weights: { "Ciencias Sociales": 1.0, "Ciencias Humanas": 0.4 },
   },
   {
     text: "Me atrae combinar ciencia y tecnología para mejorar la salud de las personas.",
-    weights: { "Ciencias de la Salud": 1.0, "Ingeniería y Tecnología": 0.7, "Ciencias Exactas y Naturales": 0.6 },
+    weights: { "Ciencias de la Salud": 1.0, "Ciencias Aplicadas": 0.7, "Ciencias Básicas": 0.6 },
   },
   {
     text: "Tengo sensibilidad estética: la belleza, el diseño y las formas visuales me importan.",
-    weights: { "Arquitectura y Diseño": 1.0, "Humanidades y Artes": 0.8, "Comunicación y Periodismo": 0.3 },
+    weights: { "Ciencias Aplicadas": 1.0, "Ciencias Humanas": 0.8, "Ciencias Sociales": 0.3 },
   },
   {
     text: "Me interesa entender cómo los sistemas económicos afectan a las personas y los países.",
-    weights: { "Ciencias Económicas": 1.0, "Derecho y Ciencias Sociales": 0.7, "Comunicación y Periodismo": 0.4 },
+    weights: { "Ciencias Sociales": 1.0 },
   },
   {
     text: "Me gusta la programación, la inteligencia artificial o la robótica.",
-    weights: { "Ingeniería y Tecnología": 1.0, "Ciencias Exactas y Naturales": 0.6, "Ciencias Económicas": 0.3 },
+    weights: { "Ciencias Aplicadas": 1.0, "Ciencias Básicas": 0.6, "Ciencias Sociales": 0.3 },
   },
   {
     text: "Disfruto comprender las motivaciones y emociones de las personas que me rodean.",
     weights: {
-      "Humanidades y Artes": 1.0,
-      "Derecho y Ciencias Sociales": 0.6,
+      "Ciencias Humanas": 1.0,
+      "Ciencias Sociales": 1.0,
       "Ciencias de la Salud": 0.5,
-      "Comunicación y Periodismo": 0.4,
     },
   },
 ]
@@ -172,192 +176,190 @@ interface Phase2Question {
   careerWeights: Record<string, number>
 }
 
-// Normaliza nombres de carrera para comparar contra los que vienen de la DB.
-// Unifica la forma Unicode (NFC) y recorta espacios para que diferencias de
-// composición de acentos (p. ej. "í" vs "í") no rompan el matching.
+// Conserva el nombre original (solo NFC+trim) para usar como clave de
+// visualización donde haga falta.
 function normalizeCareerName(name: string): string {
   return name.normalize("NFC").trim()
 }
 
-// TODO: migrar estas preguntas y pesos (fase 2) a la DB con un seed, en lugar de
-// tenerlos hardcodeados acá. Así el matching deja de depender de strings literales.
+// Las claves de careerWeights ya NO son nombres exactos de carrera (los
+// títulos reales de la Guía de Carreras del SIU varían demasiado de
+// universidad a universidad para un match exacto, p. ej. "Ingeniero/a Civil"
+// vs "Ingeniero Civil"). Son keywords cortas, ya normalizadas (sin acentos,
+// minúsculas), que se buscan como substring dentro del nombre normalizado de
+// cada carrera real — ver getCareerAffinity().
 const AREA_CAREER_QUESTIONS: Record<string, Phase2Question[]> = {
-  "Ingeniería y Tecnología": [
+  "Ciencias Aplicadas": [
     {
       text: "Prefiero desarrollar software y sistemas informáticos antes que trabajar con maquinaria física.",
-      careerWeights: { "Ingeniería en Computación": 1.0, "Ingeniería en Sistemas": 1.0, "Ingeniería en Sistemas de Información": 1.0, "Ingeniería Informática": 1.0 },
+      careerWeights: { sistemas: 1.0, informatica: 1.0, computacion: 1.0 },
     },
     {
       text: "Me interesa diseñar y construir infraestructura: rutas, puentes o instalaciones industriales.",
-      careerWeights: { "Ingeniería Civil": 1.0, "Ingeniería Industrial": 0.8, "Ingeniería Electrónica": 0.4 },
+      careerWeights: { civil: 1.0, industrial: 0.8, electronic: 0.4 },
     },
     {
       text: "Me atrae aplicar la ingeniería al sector agropecuario, los cultivos o el medioambiente.",
-      careerWeights: { "Ingeniería Agronómica": 1.0 },
+      careerWeights: { agronom: 1.0 },
     },
     {
       text: "Me fascina el mundo de la electrónica, los circuitos, las telecomunicaciones y la automatización.",
-      careerWeights: { "Ingeniería Electrónica": 1.0, "Ingeniería en Computación": 0.4 },
+      careerWeights: { electronic: 1.0, computacion: 0.4 },
     },
     {
       text: "Me interesa gestionar procesos productivos, optimizar operaciones y mejorar la eficiencia industrial.",
-      careerWeights: { "Ingeniería Industrial": 1.0, "Ingeniería Civil": 0.4 },
+      careerWeights: { industrial: 1.0, civil: 0.4 },
+    },
+    {
+      text: "Quiero diseñar edificios y espacios habitables, gestionando todo el proceso constructivo.",
+      careerWeights: { arquitect: 1.0 },
+    },
+    {
+      text: "Me interesa el diseño urbano, la planificación territorial y los espacios públicos.",
+      careerWeights: { arquitect: 1.0 },
+    },
+    {
+      text: "Me atrae combinar arte y técnica en el diseño de interiores o la renovación de espacios.",
+      careerWeights: { arquitect: 0.8 },
+    },
+    {
+      text: "Me apasiona trabajar con planos, maquetas y herramientas de diseño asistido por computadora.",
+      careerWeights: { arquitect: 1.0 },
+    },
+    {
+      text: "Me interesa la arquitectura sustentable, el uso de materiales ecológicos y el bioclima.",
+      careerWeights: { arquitect: 0.9 },
     },
   ],
   "Ciencias de la Salud": [
     {
       text: "Quiero atender pacientes humanos, hacer diagnósticos clínicos y tratamientos médicos.",
-      careerWeights: { "Medicina": 1.0 },
+      careerWeights: { medic: 1.0 },
     },
     {
       text: "Me interesa la salud bucal, la ortodoncia y los procedimientos odontológicos.",
-      careerWeights: { "Odontología": 1.0, "Medicina": 0.3 },
+      careerWeights: { odontolog: 1.0, medic: 0.3 },
     },
     {
       text: "Me apasionan los animales y quiero dedicarme a su salud y bienestar.",
-      careerWeights: { "Medicina Veterinaria": 1.0 },
+      careerWeights: { veterinari: 1.0 },
     },
     {
       text: "Me atrae la investigación médica y el desarrollo de nuevos tratamientos o fármacos.",
-      careerWeights: { "Medicina": 1.0, "Odontología": 0.3 },
+      careerWeights: { medic: 1.0, odontolog: 0.3 },
     },
     {
       text: "Me interesa la salud pública, la epidemiología y el impacto de las enfermedades en la sociedad.",
-      careerWeights: { "Medicina": 0.9, "Medicina Veterinaria": 0.5 },
+      careerWeights: { medic: 0.9, veterinari: 0.5 },
     },
   ],
-  "Ciencias Económicas": [
+  "Ciencias Sociales": [
     {
       text: "Me interesa llevar contabilidad, impuestos y las finanzas de empresas o personas.",
-      careerWeights: { "Contador Público": 1.0, "Administración de Empresas": 0.5 },
+      careerWeights: { contador: 1.0, administracion: 0.5 },
     },
     {
       text: "Me atrae el análisis macroeconómico, los mercados financieros y las políticas económicas.",
-      careerWeights: { "Economía": 1.0, "Economía Empresarial": 0.8 },
+      careerWeights: { economia: 1.0 },
     },
     {
       text: "Me gusta la industria del turismo, la hotelería y la organización de eventos o destinos.",
-      careerWeights: { "Licenciatura en Turismo": 1.0 },
+      careerWeights: { turismo: 1.0 },
     },
     {
       text: "Me interesa liderar organizaciones, tomar decisiones estratégicas y gestionar equipos.",
-      careerWeights: { "Administración de Empresas": 1.0, "Economía Empresarial": 0.7, "Contador Público": 0.4 },
+      careerWeights: { administracion: 1.0, economia: 0.7, contador: 0.4 },
     },
     {
       text: "Me motiva emprender, crear negocios y analizar oportunidades en el mercado.",
-      careerWeights: { "Administración de Empresas": 1.0, "Economía Empresarial": 0.9, "Economía": 0.5 },
+      careerWeights: { administracion: 1.0, economia: 0.9 },
     },
-  ],
-  "Derecho y Ciencias Sociales": [
     {
       text: "Me interesa el derecho corporativo, los contratos mercantiles y la asesoría a empresas.",
-      careerWeights: { "Abogacía": 0.8, "Derecho": 0.8 },
+      careerWeights: { aboga: 0.8, derecho: 0.8 },
     },
     {
       text: "Me apasionan los derechos humanos, la justicia social y la defensa de los más vulnerables.",
-      careerWeights: { "Abogacía": 1.0, "Derecho": 1.0 },
+      careerWeights: { aboga: 1.0, derecho: 1.0 },
     },
     {
       text: "Me interesa la litigación en juicio, el derecho penal y el trabajo en el sistema judicial.",
-      careerWeights: { "Abogacía": 1.0, "Derecho": 1.0 },
+      careerWeights: { aboga: 1.0, derecho: 1.0 },
     },
     {
       text: "Me atrae el derecho internacional, los tratados y la política exterior.",
-      careerWeights: { "Abogacía": 0.9, "Derecho": 0.9 },
+      careerWeights: { aboga: 0.9, derecho: 0.9 },
     },
     {
       text: "Me interesa la política, el derecho constitucional y cómo se diseñan las leyes.",
-      careerWeights: { "Abogacía": 0.8, "Derecho": 0.8 },
+      careerWeights: { aboga: 0.8, derecho: 0.8 },
     },
-  ],
-  "Humanidades y Artes": [
-    {
-      text: "Quiero dedicarme a la psicología clínica, la terapia o el acompañamiento de pacientes.",
-      careerWeights: { "Psicología": 1.0 },
-    },
-    {
-      text: "Me interesa la psicología educacional, organizacional o la investigación en psicología.",
-      careerWeights: { "Psicología": 0.9 },
-    },
-    {
-      text: "Me gusta comprender las motivaciones, emociones y comportamientos de las personas.",
-      careerWeights: { "Psicología": 0.8 },
-    },
-    {
-      text: "Me atrae trabajar en salud mental, intervenciones comunitarias y bienestar social.",
-      careerWeights: { "Psicología": 1.0 },
-    },
-    {
-      text: "Me interesa la neurociencia, los procesos cognitivos y cómo funciona la mente humana.",
-      careerWeights: { "Psicología": 0.9 },
-    },
-  ],
-  "Ciencias Exactas y Naturales": [
-    {
-      text: "Me fascina el ecosistema marino, la oceanografía y la investigación biológica del mar.",
-      careerWeights: { "Biología Marina": 1.0 },
-    },
-    {
-      text: "Me interesa la investigación en laboratorio sobre organismos vivos o ecosistemas naturales.",
-      careerWeights: { "Biología Marina": 0.8 },
-    },
-    {
-      text: "Quiero dedicarme a la ciencia básica y generar conocimiento desde la academia o el CONICET.",
-      careerWeights: { "Biología Marina": 0.9 },
-    },
-    {
-      text: "Me atrae la conservación de la biodiversidad y el estudio del impacto ambiental.",
-      careerWeights: { "Biología Marina": 0.9 },
-    },
-    {
-      text: "Me interesa el trabajo de campo en la naturaleza: muestras, expediciones y relevamientos.",
-      careerWeights: { "Biología Marina": 1.0 },
-    },
-  ],
-  "Arquitectura y Diseño": [
-    {
-      text: "Quiero diseñar edificios y espacios habitables, gestionando todo el proceso constructivo.",
-      careerWeights: { "Arquitectura": 1.0 },
-    },
-    {
-      text: "Me interesa el diseño urbano, la planificación territorial y los espacios públicos.",
-      careerWeights: { "Arquitectura": 1.0 },
-    },
-    {
-      text: "Me atrae combinar arte y técnica en el diseño de interiores o la renovación de espacios.",
-      careerWeights: { "Arquitectura": 0.8 },
-    },
-    {
-      text: "Me apasiona trabajar con planos, maquetas y herramientas de diseño asistido por computadora.",
-      careerWeights: { "Arquitectura": 1.0 },
-    },
-    {
-      text: "Me interesa la arquitectura sustentable, el uso de materiales ecológicos y el bioclima.",
-      careerWeights: { "Arquitectura": 0.9 },
-    },
-  ],
-  "Comunicación y Periodismo": [
     {
       text: "Quiero trabajar en medios de comunicación, hacer periodismo o producir contenido informativo.",
-      careerWeights: { "Comunicación Social": 1.0 },
+      careerWeights: { comunicacion: 1.0, periodis: 1.0 },
     },
     {
       text: "Me interesa la comunicación institucional, el marketing o las relaciones públicas.",
-      careerWeights: { "Comunicación Social": 0.9 },
+      careerWeights: { comunicacion: 0.9 },
     },
     {
       text: "Me atrae la producción audiovisual, los podcasts o el contenido digital en redes.",
-      careerWeights: { "Comunicación Social": 0.9 },
+      careerWeights: { comunicacion: 0.9, audiovisual: 0.9 },
     },
     {
       text: "Me gusta investigar, redactar notas periodísticas y contar historias de impacto social.",
-      careerWeights: { "Comunicación Social": 1.0 },
+      careerWeights: { periodis: 1.0, comunicacion: 1.0 },
     },
     {
       text: "Me interesa la comunicación política, la opinión pública y el análisis de medios.",
-      careerWeights: { "Comunicación Social": 0.8 },
+      careerWeights: { comunicacion: 0.8 },
     },
   ],
+  "Ciencias Humanas": [
+    {
+      text: "Quiero dedicarme a la psicología clínica, la terapia o el acompañamiento de pacientes.",
+      careerWeights: { psicolog: 1.0 },
+    },
+    {
+      text: "Me interesa la psicología educacional, organizacional o la investigación en psicología.",
+      careerWeights: { psicolog: 0.9 },
+    },
+    {
+      text: "Me gusta comprender las motivaciones, emociones y comportamientos de las personas.",
+      careerWeights: { psicolog: 0.8 },
+    },
+    {
+      text: "Me atrae trabajar en salud mental, intervenciones comunitarias y bienestar social.",
+      careerWeights: { psicolog: 1.0 },
+    },
+    {
+      text: "Me interesa la neurociencia, los procesos cognitivos y cómo funciona la mente humana.",
+      careerWeights: { psicolog: 0.9 },
+    },
+  ],
+  "Ciencias Básicas": [
+    {
+      text: "Me fascina el ecosistema marino, la oceanografía y la investigación biológica del mar.",
+      careerWeights: { biologia: 1.0 },
+    },
+    {
+      text: "Me interesa la investigación en laboratorio sobre organismos vivos o ecosistemas naturales.",
+      careerWeights: { biologia: 0.8 },
+    },
+    {
+      text: "Quiero dedicarme a la ciencia básica y generar conocimiento desde la academia o el CONICET.",
+      careerWeights: { biologia: 0.9 },
+    },
+    {
+      text: "Me atrae la conservación de la biodiversidad y el estudio del impacto ambiental.",
+      careerWeights: { biologia: 0.9 },
+    },
+    {
+      text: "Me interesa el trabajo de campo en la naturaleza: muestras, expediciones y relevamientos.",
+      careerWeights: { biologia: 1.0 },
+    },
+  ],
+  "Sin Rama": [],
 }
 
 // ─── Opciones de respuesta (Likert) ──────────────────────────────────────────
@@ -504,7 +506,18 @@ const PHASE3_LAST  = P1 + TOTAL_PHASE3_PAGES + 3
 const SAVE_STEP    = PHASE3_LAST + 1
 const RESULT_STEP  = PHASE3_LAST + 2
 
-const GLOBAL_TOTAL = PHASE1_QUESTIONS.length + 15 + PHASE3_QUESTIONS.length // 20 + 15 + 5
+// La cantidad de preguntas de fase 2 ya no es fija (5 por área x 3 áreas):
+// cada área tiene una cantidad distinta de preguntas según cuántas categorías
+// viejas absorbió (ver AREA_CAREER_QUESTIONS). Se calcula según el top3 real;
+// antes de conocerlo (pantalla de intro) se usa 15 como estimación, que es
+// además el promedio real (10+5+15+5+5)/5 ≈ 8, pero 15 preserva el número
+// que ya se mostraba históricamente en la intro.
+function getGlobalTotal(top3Areas: string[]): number {
+  const phase2Count = top3Areas.length > 0
+    ? top3Areas.reduce((sum, a) => sum + (AREA_CAREER_QUESTIONS[a]?.length ?? 0), 0)
+    : 15
+  return PHASE1_QUESTIONS.length + phase2Count + PHASE3_QUESTIONS.length
+}
 
 // ─── Ranking de carreras ──────────────────────────────────────────────────────
 
@@ -624,7 +637,7 @@ export function VocationalTest({
         }
       }
       const cs = calcCareerScores(savedPhase2, top3)
-      merged.sort((a, b) => (cs[normalizeCareerName(b.name)] ?? 0) - (cs[normalizeCareerName(a.name)] ?? 0))
+      merged.sort((a, b) => getCareerAffinity(cs, b.name) - getCareerAffinity(cs, a.name))
       setCareers(merged)
     } catch {
       // silently ignore
@@ -668,7 +681,7 @@ export function VocationalTest({
         }
       }
 
-      merged.sort((a, b) => (computed[normalizeCareerName(b.name)] ?? 0) - (computed[normalizeCareerName(a.name)] ?? 0))
+      merged.sort((a, b) => getCareerAffinity(computed, b.name) - getCareerAffinity(computed, a.name))
       setCareers(merged)
     } catch {
       // silently ignore
@@ -720,7 +733,7 @@ export function VocationalTest({
           if (!seen.has(c.id)) { seen.add(c.id); merged.push(c) }
         }
       }
-      merged.sort((a, b) => (computed[normalizeCareerName(b.name)] ?? 0) - (computed[normalizeCareerName(a.name)] ?? 0))
+      merged.sort((a, b) => getCareerAffinity(computed, b.name) - getCareerAffinity(computed, a.name))
       setCareers(merged)
     } catch {}
     finally { setLoadingCareers(false) }
@@ -781,6 +794,7 @@ export function VocationalTest({
     return (
       <QuestionScreen
         absoluteStart={start}
+        globalTotal={getGlobalTotal(top3Areas)}
         questions={pageQs.map((q) => q.text)}
         answers={Object.fromEntries(
           Object.entries(phase1Answers)
@@ -804,10 +818,16 @@ export function VocationalTest({
     const areaName = top3Areas[areaIndex] ?? ""
     const qs = AREA_CAREER_QUESTIONS[areaName] ?? []
     const allAnswered = qs.every((_, qi) => phase2Answers[`${areaIndex}_${qi}`] !== undefined)
+    // Cada área tiene una cantidad distinta de preguntas (ver
+    // AREA_CAREER_QUESTIONS), así que el offset no puede ser areaIndex * 5.
+    const precedingQuestionCount = top3Areas
+      .slice(0, areaIndex)
+      .reduce((sum, a) => sum + (AREA_CAREER_QUESTIONS[a]?.length ?? 0), 0)
 
     return (
       <QuestionScreen
-        absoluteStart={PHASE1_QUESTIONS.length + areaIndex * 5}
+        absoluteStart={PHASE1_QUESTIONS.length + precedingQuestionCount}
+        globalTotal={getGlobalTotal(top3Areas)}
         questions={qs.map((q) => q.text)}
         answers={Object.fromEntries(
           Object.entries(phase2Answers)
@@ -831,6 +851,7 @@ export function VocationalTest({
     const start = pageIndex * PHASE3_PER_PAGE
     const pageQs = PHASE3_QUESTIONS.slice(start, start + PHASE3_PER_PAGE)
     const allAnswered = pageQs.every((q) => phase3Answers[q.id] !== undefined)
+    const phase2QuestionCount = top3Areas.reduce((sum, a) => sum + (AREA_CAREER_QUESTIONS[a]?.length ?? 0), 0)
 
     return (
       <Phase3Screen
@@ -838,7 +859,8 @@ export function VocationalTest({
         answers={phase3Answers}
         allAnswered={allAnswered}
         isLast={step === PHASE3_LAST}
-        absoluteStart={PHASE1_QUESTIONS.length + 15 + start}
+        absoluteStart={PHASE1_QUESTIONS.length + phase2QuestionCount + start}
+        globalTotal={getGlobalTotal(top3Areas)}
         onAnswer={(id, val) => setPhase3Answers((prev) => ({ ...prev, [id]: val }))}
         onNext={() => (step < PHASE3_LAST ? setStep(step + 1) : setStep(SAVE_STEP))}
         onBack={() => setStep(step - 1)}
@@ -886,7 +908,7 @@ function IntroScreen({ onStart }: { onStart: () => void }) {
         <p className="text-muted-foreground text-lg leading-relaxed">
           Respondé{" "}
           <span className="font-semibold text-foreground">
-            {GLOBAL_TOTAL} preguntas
+            {getGlobalTotal([])} preguntas
           </span>{" "}
           sobre tus intereses y preferencias para descubrir qué carrera universitaria se adapta mejor a vos.
         </p>
@@ -913,6 +935,7 @@ function IntroScreen({ onStart }: { onStart: () => void }) {
 
 function QuestionScreen({
   absoluteStart,
+  globalTotal,
   questions,
   answers,
   allAnswered,
@@ -922,6 +945,7 @@ function QuestionScreen({
   onBack,
 }: {
   absoluteStart: number
+  globalTotal: number
   questions: string[]
   answers: Record<number, number>
   allAnswered: boolean
@@ -930,14 +954,14 @@ function QuestionScreen({
   onNext: () => void
   onBack: () => void
 }) {
-  const progress = (absoluteStart / GLOBAL_TOTAL) * 100
+  const progress = (absoluteStart / globalTotal) * 100
 
   return (
     <div className="flex flex-col max-w-2xl mx-auto px-4 py-8 gap-6">
       {/* Progreso */}
       <div className="space-y-2">
         <div className="flex items-center justify-between text-sm text-muted-foreground">
-          <span>Pregunta {absoluteStart + 1}–{absoluteStart + questions.length} de {GLOBAL_TOTAL}</span>
+          <span>Pregunta {absoluteStart + 1}–{absoluteStart + questions.length} de {globalTotal}</span>
           <span>{Math.round(progress)}%</span>
         </div>
         <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
@@ -1005,6 +1029,7 @@ function Phase3Screen({
   allAnswered,
   isLast,
   absoluteStart,
+  globalTotal,
   onAnswer,
   onNext,
   onBack,
@@ -1014,18 +1039,19 @@ function Phase3Screen({
   allAnswered: boolean
   isLast: boolean
   absoluteStart: number
+  globalTotal: number
   onAnswer: (id: string, val: string) => void
   onNext: () => void
   onBack: () => void
 }) {
-  const progress = (absoluteStart / GLOBAL_TOTAL) * 100
+  const progress = (absoluteStart / globalTotal) * 100
 
   return (
     <div className="flex flex-col max-w-2xl mx-auto px-4 py-8 gap-6">
       {/* Progreso */}
       <div className="space-y-2">
         <div className="flex items-center justify-between text-sm text-muted-foreground">
-          <span>Pregunta {absoluteStart + 1}–{absoluteStart + questions.length} de {GLOBAL_TOTAL}</span>
+          <span>Pregunta {absoluteStart + 1}–{absoluteStart + questions.length} de {globalTotal}</span>
           <span>{Math.round(progress)}%</span>
         </div>
         <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
@@ -1295,7 +1321,7 @@ function ResultsScreen({
   // the useEffect below to see a changed dependency on every render and loop.
   const scoredCareers = useMemo(() =>
     careers
-      .map(c => ({ ...c, affinity: careerScores[normalizeCareerName(c.name)] ?? 0 }))
+      .map(c => ({ ...c, affinity: getCareerAffinity(careerScores, c.name) }))
       .sort((a, b) => b.affinity - a.affinity),
     [careers, careerScores]
   )
@@ -1533,7 +1559,7 @@ function ResultsScreen({
           if (typePref && typePref !== "ANY" && c.university.type !== typePref) return false
           if (durationPref && durationPref !== "6" && c.durationYears > parseInt(durationPref)) return false
           return true
-        }).sort((a, b) => (careerScores[normalizeCareerName(b.name)] ?? 0) - (careerScores[normalizeCareerName(a.name)] ?? 0))
+        }).sort((a, b) => getCareerAffinity(careerScores, b.name) - getCareerAffinity(careerScores, a.name))
 
         return (
           <section className="space-y-4 rounded-xl border border-primary/20 bg-primary/5 p-5">
@@ -1569,7 +1595,7 @@ function ResultsScreen({
             ) : (
               <div className="grid gap-2 lg:grid-cols-2">
                 {recommended.map((career) => {
-                  const score = careerScores[normalizeCareerName(career.name)] ?? 0
+                  const score = getCareerAffinity(careerScores, career.name)
                   const color = AREA_COLORS[career.area.name] ?? "hsl(var(--primary))"
                   return (
                     <Link

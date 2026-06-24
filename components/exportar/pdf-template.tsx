@@ -6,7 +6,6 @@ export type CareerDetail = {
   durationYears: number
   degreeTitle: string
   modality: "PRESENCIAL" | "HIBRIDO" | "ONLINE"
-  studentCount: number
   description: string | null
   university: { name: string; city: string; province: string; type: string }
   area: { id?: string; name: string }
@@ -64,7 +63,6 @@ function PDFCareerCard({ career, color }: { career: CareerDetail; color: string 
     ["Duración", `${career.durationYears} años`],
     ["Modalidad", MODALITY_LABEL[career.modality]],
     ["Título", career.degreeTitle],
-    ["Estudiantes", career.studentCount.toLocaleString("es-AR")],
     ["Materias", `${totalSubjects} en total`],
     ["Calificación", career.rating !== null ? `${career.rating} / 5.0 (${career.reviewCount} reseñas)` : "Sin reseñas"],
   ]
@@ -92,7 +90,6 @@ export function PDFExportTemplate({ careers }: { careers: CareerDetail[] }) {
   const date = new Date().toLocaleDateString("es-AR", { day: "numeric", month: "long", year: "numeric" })
   const allYears = [...new Set(careers.flatMap((c) => c.studyPlans.map((p) => p.year)))].sort((a, b) => a - b)
 
-  const maxStudents = Math.max(...careers.map((c) => c.studentCount), 1)
   const maxDuration = Math.max(...careers.map((c) => c.durationYears), 1)
   const maxSubjects = Math.max(...careers.map((c) => c.studyPlans.reduce((s, p) => s + p.subjects.length, 0)), 1)
 
@@ -106,7 +103,6 @@ export function PDFExportTemplate({ careers }: { careers: CareerDetail[] }) {
     ["Título otorgado", (c) => c.degreeTitle],
     ["Duración", (c) => `${c.durationYears} años`],
     ["Modalidad", (c) => MODALITY_LABEL[c.modality]],
-    ["Estudiantes inscritos", (c) => c.studentCount.toLocaleString("es-AR")],
     ["Total de materias", (c) => `${c.studyPlans.reduce((s, p) => s + p.subjects.length, 0)}`],
     ["Calificación", (c) => c.rating !== null ? `${c.rating} / 5.0 (${c.reviewCount} reseñas)` : "Sin reseñas"],
   ]
@@ -223,12 +219,6 @@ export function PDFExportTemplate({ careers }: { careers: CareerDetail[] }) {
       <div data-pdf-break="true" style={{ marginBottom: "40px" }}>
         <PDFSectionTitle>Métricas comparativas</PDFSectionTitle>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "28px 40px" }}>
-          <div>
-            <div style={{ fontSize: "12px", fontWeight: 600, color: "#374151", marginBottom: "12px" }}>Estudiantes inscritos</div>
-            {careers.map((c, i) => (
-              <PDFMetricBar key={c.id} label={c.name} value={c.studentCount} max={maxStudents} color={PDF_COLORS[i]} format={(v) => v.toLocaleString("es-AR")} />
-            ))}
-          </div>
           <div>
             <div style={{ fontSize: "12px", fontWeight: 600, color: "#374151", marginBottom: "12px" }}>Duración de la carrera</div>
             {careers.map((c, i) => (

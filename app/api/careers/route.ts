@@ -8,6 +8,8 @@ export async function GET(req: NextRequest) {
   const modality = searchParams.get("modality") ?? "";
   const areaId = searchParams.get("areaId") ?? "";
   const universityId = searchParams.get("universityId") ?? "";
+  const page = Math.max(1, Number(searchParams.get("page")) || 1);
+  const pageSize = Math.max(1, Number(searchParams.get("pageSize")) || 20);
 
   const careers = await prisma.career.findMany({
     where: {
@@ -22,7 +24,7 @@ export async function GET(req: NextRequest) {
       area: { select: { id: true, name: true } },
       reviews: { select: { rating: true } },
     },
-    orderBy: { studentCount: "desc" },
+    orderBy: { name: "asc" },
   });
 
   const normalized = (s: string) =>
@@ -41,5 +43,12 @@ export async function GET(req: NextRequest) {
     return { ...rest, rating };
   });
 
-  return NextResponse.json(data);
+  const total = data.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const paged = data.slice((page - 1) * pageSize, page * pageSize);
+
+  return NextResponse.json({
+    data: paged,
+    pagination: { page, pageSize, total, totalPages },
+  });
 }

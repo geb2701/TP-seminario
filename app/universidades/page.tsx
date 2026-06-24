@@ -1,20 +1,23 @@
 "use client"
 
-import { Suspense, useState } from "react"
+import { Suspense, useEffect, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
 import { useApiQuery } from "@/lib/api"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button, buttonVariants } from "@/components/ui/button"
+import { buttonVariants } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select"
+import { PaginationControls } from "@/components/pagination-controls"
 import { cn } from "@/lib/utils"
 import { MapPin, BookOpen, Globe, Search, SearchX } from "lucide-react"
 import { EmptyState } from "@/components/empty-state"
 import { ErrorState } from "@/components/error-state"
+
+const PAGE_SIZE = 12
 
 type University = {
   id: string
@@ -70,15 +73,27 @@ function UniversidadesPageContent() {
   const searchParams = useSearchParams()
   const [search, setSearch] = useState(searchParams.get("search") ?? "")
   const [type, setType] = useState("todos")
+  const [page, setPage] = useState(1)
+
+  // Si cambian los filtros, volvemos a la primera página.
+  useEffect(() => {
+    setPage(1)
+  }, [search, type])
 
   const params = new URLSearchParams()
   if (search) params.set("search", search)
   if (type !== "todos") params.set("type", type)
 
+  // El listado completo se trae en una sola consulta (130 universidades es
+  // liviano), pero se pagina del lado del cliente porque la grilla completa
+  // es demasiado larga para scrollear de una sola vez.
   const { data: universities, isLoading, isError, refetch } = useApiQuery<University[]>(
     ["universities", search, type],
     `universities?${params.toString()}`
   )
+
+  const totalPages = Math.max(1, Math.ceil((universities?.length ?? 0) / PAGE_SIZE))
+  const pageItems = universities?.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   const hasFilters = search !== "" || type !== "todos"
 
@@ -142,7 +157,7 @@ function UniversidadesPageContent() {
                 </CardContent>
               </Card>
             ))
-          : universities?.map((uni) => (
+          : pageItems?.map((uni) => (
               <Card key={uni.id} className="hover:shadow-lg transition-shadow">
                 <CardHeader>
                   <div className="flex items-start justify-between gap-3">
@@ -200,6 +215,10 @@ function UniversidadesPageContent() {
               </Card>
             ))}
       </section>
+
+      {!isLoading && universities && universities.length > 0 && (
+        <PaginationControls page={page} totalPages={totalPages} onPageChange={setPage} />
+      )}
 
       {!isLoading && !isError && universities?.length === 0 && (
         <EmptyState

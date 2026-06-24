@@ -17,7 +17,6 @@ type Career = {
   name: string
   durationYears: number
   modality: "PRESENCIAL" | "HIBRIDO" | "ONLINE"
-  studentCount: number
   university: { id: string; name: string; city: string; province: string }
   rating: number | null
 }

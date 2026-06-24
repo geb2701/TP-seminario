@@ -56,7 +56,6 @@ export async function GET(
           name: career.name,
           modality: career.modality,
           durationYears: career.durationYears,
-          studentCount: career.studentCount,
           rating,
           areaId: career.areaId,
           areaName: career.area?.name || "Sin clasificar",
@@ -70,7 +69,6 @@ export async function GET(
           name: string;
           modality: string;
           durationYears: number;
-          studentCount: number;
           rating: number | null;
           areaId: string | null;
           areaName: string;

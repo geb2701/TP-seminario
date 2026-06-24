@@ -6,11 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Cell } from "recharts"
-import { AREA_EMOJIS } from "./constants"
-
-function normalizeCareerName(name: string): string {
-  return name.normalize("NFC").trim()
-}
+import { AREA_EMOJIS, getCareerAffinity } from "./constants"
 
 export type CompareCareer = {
   id: string
@@ -18,7 +14,6 @@ export type CompareCareer = {
   durationYears: number
   degreeTitle: string
   modality: "PRESENCIAL" | "HIBRIDO" | "ONLINE"
-  studentCount: number
   description: string | null
   university: { name: string; city: string; province: string; type: string }
   area: { name: string }
@@ -124,7 +119,6 @@ export function ComparisonPanel({
     return Array.from(years).sort((a, b) => a - b)
   }, [data])
 
-  const studentsData = data?.map((c) => ({ name: c.name, shortName: shortName(c.name), value: c.studentCount })) ?? []
   const durationData = data?.map((c) => ({ name: c.name, shortName: shortName(c.name), value: c.durationYears })) ?? []
   const ratingData   = data?.map((c) => ({ name: c.name, shortName: shortName(c.name), value: c.rating })) ?? []
   const subjectsData = data?.map((c) => ({
@@ -135,7 +129,7 @@ export function ComparisonPanel({
 
   const rows: { label: string; render: (c: CompareCareer) => React.ReactNode }[] = [
     { label: "Afinidad", render: (c) => {
-      const score = careerScores[normalizeCareerName(c.name)] ?? 0
+      const score = getCareerAffinity(careerScores, c.name)
       return score > 0
         ? <span className="font-semibold text-primary">{score}%</span>
         : <span className="text-muted-foreground">—</span>
@@ -147,7 +141,6 @@ export function ComparisonPanel({
     { label: "Título otorgado",    render: (c) => c.degreeTitle },
     { label: "Duración",           render: (c) => `${c.durationYears} años` },
     { label: "Modalidad",          render: (c) => <Badge variant="outline">{MODALITY_LABEL[c.modality]}</Badge> },
-    { label: "Estudiantes inscritos", render: (c) => c.studentCount.toLocaleString("es-AR") },
     {
       label: "Calificación",
       render: (c) => c.rating !== null ? `⭐ ${c.rating} / 5.0 (${c.reviewCount} reseñas)` : "Sin reseñas",
@@ -239,11 +232,6 @@ export function ComparisonPanel({
         <section className="space-y-4">
           <h2 className="text-base font-semibold">Métricas comparativas</h2>
           <div className="grid gap-4 sm:grid-cols-2">
-            <MetricBarChart
-              title="Estudiantes inscritos"
-              data={studentsData}
-              formatter={(v) => v.toLocaleString("es-AR")}
-            />
             <MetricBarChart
               title="Duración (años)"
               data={durationData}
