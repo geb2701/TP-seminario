@@ -9,7 +9,6 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   Clock,
-  Users,
   GraduationCap,
   Star,
   BookOpen,
@@ -19,6 +18,7 @@ import { EmptyState } from "@/components/empty-state"
 import { ErrorState } from "@/components/error-state"
 import { UniversityInfoCard } from "@/components/university-info-card"
 import { StarRating } from "@/components/star-rating"
+import { ReviewForm } from "@/components/review-form"
 import { useCompareCareers } from "@/hooks/use-compare-careers"
 import { useDynamicBreadcrumb } from "@/components/breadcrumb-context"
 
@@ -61,7 +61,6 @@ type CareerDetail = {
   degreeTitle: string
   modality: "PRESENCIAL" | "HIBRIDO" | "ONLINE"
   description: string | null
-  studentCount: number
   rating: number | null
   reviewCount: number
   university: {
@@ -104,8 +103,8 @@ function SkeletonDetail() {
           <Skeleton className="h-6 w-24" />
         </div>
       </div>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, i) => (
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {Array.from({ length: 3 }).map((_, i) => (
           <Card key={i}>
             <CardContent className="pt-6">
               <Skeleton className="h-8 w-12 mb-1" />
@@ -205,7 +204,7 @@ export default function CarreraDetailPage({
       </section>
 
       {/* Resumen rapido de los datos mas importantes de la carrera */}
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
@@ -213,17 +212,6 @@ export default function CarreraDetailPage({
               <div>
                 <p className="text-2xl font-bold">{career.durationYears}</p>
                 <p className="text-xs text-muted-foreground">años de duración</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-3">
-              <Users className="h-5 w-5 text-muted-foreground shrink-0" />
-              <div>
-                <p className="text-2xl font-bold">{career.studentCount.toLocaleString("es-AR")}</p>
-                <p className="text-xs text-muted-foreground">estudiantes</p>
               </div>
             </div>
           </CardContent>
@@ -315,6 +303,8 @@ export default function CarreraDetailPage({
 
         {/* Reseñas de usuarios. Si no hay, se muestra un estado vacio descriptivo */}
         <TabsContent value="resenas" className="mt-6 space-y-4">
+          <ReviewForm postUrl={`careers/${career.id}/reviews`} onSuccess={refetch} />
+
           {career.reviews.length === 0 ? (
             <EmptyState
               icon={Star}

@@ -9,44 +9,36 @@ Plataforma para buscar, comparar y reseñar carreras universitarias en Argentina
 ## Requisitos previos
 
 - Node.js 18+
-- Una base de datos en [Turso](https://turso.tech) con su URL y token de autenticación
+
+> Para correr **localmente** no hace falta cuenta de Turso ni `.env`: la base es un
+> SQLite local (`prisma/dev.db`) y el dataset ya viene incluido en el repo
+> (`data/siu-careers.json`). Turso solo se necesita para desplegar contra la DB compartida.
 
 ---
 
-## Instalación
+## Inicio rápido (modo local)
 
-1. Clonar el repositorio:
-   ```bash
-   git clone https://github.com/geb2701/TP-seminario.git
-   cd TP-seminario
-   ```
+```bash
+# 1. Clonar
+git clone https://github.com/geb2701/TP-seminario.git
+cd TP-seminario
 
-2. Instalar dependencias (genera el cliente de Prisma automáticamente):
-   ```bash
-   npm install
-   ```
+# 2. Instalar dependencias (genera el cliente de Prisma automáticamente)
+npm install
 
-3. Configurar variables de entorno:
-   ```bash
-   cp .env.example .env
-   ```
-   Editar `.env` con los valores reales:
-   ```env
-   DATABASE_URL="file:./prisma/dev.db"
-   TURSO_DATABASE_URL="libsql://your-db.turso.io"
-   TURSO_AUTH_TOKEN="your-token"
-   ```
+# 3. Crear el SQLite local + cargar TODOS los datos (universidades, carreras,
+#    ubicaciones, áreas y reseñas curadas) en un solo comando
+npm run db:bootstrap
 
-4. Sincronizar el esquema con la base de datos local:
-   ```bash
-   npx prisma db push
-   ```
+# 4. Levantar la app en modo local
+npm run dev:local
+```
 
-5. Iniciar el servidor de desarrollo:
-   ```bash
-   npm run dev
-   ```
-   La app estará disponible en [http://localhost:3000](http://localhost:3000).
+La app queda en [http://localhost:3000](http://localhost:3000) con el dataset completo.
+
+`npm run db:bootstrap` corre, en orden: `prisma db push` (crea el esquema en
+`prisma/dev.db`) → `db:seed` (importa `data/siu-careers.json`) → `db:seed-reviews`
+(carga las reseñas/calificaciones curadas). Es idempotente: se puede re-correr.
 
 ---
 
@@ -54,9 +46,13 @@ Plataforma para buscar, comparar y reseñar carreras universitarias en Argentina
 
 | Comando | Descripción |
 |---------|-------------|
-| `npm run dev` | Inicia el servidor de desarrollo |
+| `npm run dev:local` | Servidor de desarrollo contra el SQLite local |
+| `npm run db:bootstrap` | Crea el esquema y carga todo el dataset + reseñas (setup local de un comando) |
+| `npm run db:seed` | (Re)importa solo el dataset de carreras/universidades |
+| `npm run db:seed-reviews` | (Re)carga solo las reseñas curadas |
 | `npm run build` | Compila para producción |
 | `npm run mcp` | Inicia el servidor MCP local (stdio) |
+| `npm run scrape:siu` / `:transform` | Re-genera `data/siu-careers.json` desde el SIU (no necesario: ya está commiteado) |
 | `npx prisma db push` | Sincroniza el schema con la DB local |
 | `npx prisma generate` | Regenera el cliente de Prisma |
 | `npx prisma studio` | Abre el explorador visual de la DB |

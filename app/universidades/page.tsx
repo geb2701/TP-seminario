@@ -1,20 +1,30 @@
 "use client"
 
-import { Suspense, useState } from "react"
+import { Suspense, useEffect, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
 import { useApiQuery } from "@/lib/api"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button, buttonVariants } from "@/components/ui/button"
+import { buttonVariants } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select"
+import { PaginationControls } from "@/components/pagination-controls"
 import { cn } from "@/lib/utils"
 import { MapPin, BookOpen, Globe, Search, SearchX } from "lucide-react"
 import { EmptyState } from "@/components/empty-state"
 import { ErrorState } from "@/components/error-state"
+
+const PAGE_SIZE = 12
+
+const DIMENSION_LABELS = {
+  type: "Tipo",
+  name: "Nombre",
+  rating: "Rating",
+  careers: "Cantidad de carreras",
+} as const
 
 type University = {
   id: string
@@ -66,21 +76,53 @@ function UniversityLogo({ name, logoUrl }: { name: string; logoUrl: string | nul
   )
 }
 
+type SortDimension = "type" | "name" | "rating" | "careers"
+type TypeFilter = "todos" | "PUBLIC" | "PRIVATE"
+type SortDir = "asc" | "desc"
+
 function UniversidadesPageContent() {
   const searchParams = useSearchParams()
   const [search, setSearch] = useState(searchParams.get("search") ?? "")
-  const [type, setType] = useState("todos")
+  const [dimension, setDimension] = useState<SortDimension>("type")
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>("todos")
+  const [sortDir, setSortDir] = useState<SortDir>("asc")
+  const [page, setPage] = useState(1)
+
+  // Si cambian los filtros, volvemos a la primera página.
+  useEffect(() => {
+    setPage(1)
+  }, [search, dimension, typeFilter, sortDir])
+
+  // El segundo selector cambia de significado según el primero, así que al
+  // cambiar de dimensión reseteamos su valor para no dejar estado confuso
+  // (p.ej. "Descendente" arrastrado de "Rating" mientras se mira "Tipo").
+  function changeDimension(next: SortDimension) {
+    setDimension(next)
+    setTypeFilter("todos")
+    setSortDir("asc")
+  }
 
   const params = new URLSearchParams()
   if (search) params.set("search", search)
-  if (type !== "todos") params.set("type", type)
+  if (dimension === "type") {
+    if (typeFilter !== "todos") params.set("type", typeFilter)
+  } else {
+    params.set("sortBy", dimension)
+    params.set("sortDir", sortDir)
+  }
 
+  // El listado completo se trae en una sola consulta (130 universidades es
+  // liviano), pero se pagina del lado del cliente porque la grilla completa
+  // es demasiado larga para scrollear de una sola vez.
   const { data: universities, isLoading, isError, refetch } = useApiQuery<University[]>(
-    ["universities", search, type],
+    ["universities", search, dimension, typeFilter, sortDir],
     `universities?${params.toString()}`
   )
 
-  const hasFilters = search !== "" || type !== "todos"
+  const totalPages = Math.max(1, Math.ceil((universities?.length ?? 0) / PAGE_SIZE))
+  const pageItems = universities?.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+
+  const hasFilters = search !== "" || typeFilter !== "todos"
 
   return (
     <div className="space-y-8 p-6 lg:p-8">
@@ -95,24 +137,52 @@ function UniversidadesPageContent() {
         <div className="relative flex-1">
           <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Buscar universidad o sigla (UBA, UTN)..."
+            placeholder="Buscar universidad..."
             className="pl-8"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <Select value={type} onValueChange={(v) => setType(v ?? "todos")}>
-          <SelectTrigger className="w-full sm:w-48 px-3">
-            <span className={cn("flex-1 text-left text-sm truncate", type === "todos" && "text-muted-foreground")}>
-              {type === "todos" ? "Tipo" : type === "PUBLIC" ? "Pública" : "Privada"}
+        <Select value={dimension} onValueChange={(v) => changeDimension((v as SortDimension) ?? "type")}>
+          <SelectTrigger className="w-full sm:w-44 px-3">
+            <span className="flex-1 text-left text-sm truncate">
+              {DIMENSION_LABELS[dimension]}
             </span>
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="todos">Todas</SelectItem>
-            <SelectItem value="PUBLIC">Pública</SelectItem>
-            <SelectItem value="PRIVATE">Privada</SelectItem>
+            <SelectItem value="type">Tipo</SelectItem>
+            <SelectItem value="name">Nombre</SelectItem>
+            <SelectItem value="rating">Rating</SelectItem>
+            <SelectItem value="careers">Cantidad de carreras</SelectItem>
           </SelectContent>
         </Select>
+
+        {dimension === "type" ? (
+          <Select value={typeFilter} onValueChange={(v) => setTypeFilter((v as TypeFilter) ?? "todos")}>
+            <SelectTrigger className="w-full sm:w-40 px-3">
+              <span className={cn("flex-1 text-left text-sm truncate", typeFilter === "todos" && "text-muted-foreground")}>
+                {typeFilter === "todos" ? "Todas" : typeFilter === "PUBLIC" ? "Pública" : "Privada"}
+              </span>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todas</SelectItem>
+              <SelectItem value="PUBLIC">Pública</SelectItem>
+              <SelectItem value="PRIVATE">Privada</SelectItem>
+            </SelectContent>
+          </Select>
+        ) : (
+          <Select value={sortDir} onValueChange={(v) => setSortDir((v as SortDir) ?? "asc")}>
+            <SelectTrigger className="w-full sm:w-40 px-3">
+              <span className="flex-1 text-left text-sm truncate">
+                {sortDir === "asc" ? "Ascendente" : "Descendente"}
+              </span>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="asc">Ascendente</SelectItem>
+              <SelectItem value="desc">Descendente</SelectItem>
+            </SelectContent>
+          </Select>
+        )}
       </section>
 
       {isError && (
@@ -142,7 +212,7 @@ function UniversidadesPageContent() {
                 </CardContent>
               </Card>
             ))
-          : universities?.map((uni) => (
+          : pageItems?.map((uni) => (
               <Card key={uni.id} className="hover:shadow-lg transition-shadow">
                 <CardHeader>
                   <div className="flex items-start justify-between gap-3">
@@ -200,6 +270,10 @@ function UniversidadesPageContent() {
               </Card>
             ))}
       </section>
+
+      {!isLoading && universities && universities.length > 0 && (
+        <PaginationControls page={page} totalPages={totalPages} onPageChange={setPage} />
+      )}
 
       {!isLoading && !isError && universities?.length === 0 && (
         <EmptyState

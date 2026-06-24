@@ -11,7 +11,9 @@ import { StarRating } from "@/components/star-rating"
 import { useSavedCareers } from "@/app/mis-carreras/page"
 import { useCompareCareers } from "@/hooks/use-compare-careers"
 import { EmptyState } from "@/components/empty-state"
+import { ReviewForm } from "@/components/review-form"
 import { Star } from "lucide-react"
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 
 type Review = {
   id: string
@@ -41,7 +43,6 @@ type UniversityCareersResponse = {
       name: string
       modality: string
       durationYears: number
-      studentCount: number
       rating: number | null
       areaId: string | null
       areaName: string
@@ -59,7 +60,7 @@ export default function UniversityDetailPage({
   const { isSaved, save, remove } = useSavedCareers()
   const { isComparing, canAdd, add: addToCompare, remove: removeFromCompare } = useCompareCareers()
 
-  const { data, isLoading, isError } = useApiQuery<UniversityCareersResponse>(
+  const { data, isLoading, isError, refetch } = useApiQuery<UniversityCareersResponse>(
     ["university-careers", id],
     `universities/${id}/careers`
   )
@@ -92,7 +93,7 @@ export default function UniversityDetailPage({
             <Skeleton className="h-4 w-40" />
           </>
         ) : (
-          <h1 className="text-6xl lg:text-7xl xl:text-8xl font-bold">{university?.name}</h1>
+          <h1 className="text-3xl lg:text-4xl font-bold">{university?.name}</h1>
         )}
       </div>
 
@@ -145,38 +146,50 @@ export default function UniversityDetailPage({
           ) : (
             <div className="space-y-8">
               <h2 className="text-xl font-semibold">Carreras</h2>
-              {areas.map((area) => (
-                <div key={area} className="space-y-4">
-                  <h3 className="text-base font-semibold text-muted-foreground">{area}</h3>
-                  <div className="grid gap-4 md:grid-cols-2">
-                    {careersByArea[area].map((career) => (
-                      <CareerCard
-                        key={career.id}
-                        career={career}
-                        university={{
-                          id: university?.id,
-                          name: university?.name ?? "",
-                          city: university?.city ?? "",
-                          province: university?.province ?? "",
-                        }}
-                        isSaved={isSaved(career.id)}
-                        onSave={() => isSaved(career.id) ? remove(career.id) : save(career.id)}
-                        isComparing={isComparing(career.id)}
-                        canAddToCompare={canAdd}
-                        onCompare={() => isComparing(career.id) ? removeFromCompare(career.id) : addToCompare(career.id)}
-                      />
-                    ))}
-                  </div>
-                </div>
-              ))}
+              <Accordion defaultValue={areas.slice(0, 1)} className="rounded-lg border bg-card px-4">
+                {areas.map((area) => (
+                  <AccordionItem key={area} value={area}>
+                    <AccordionTrigger className="py-4 text-base font-semibold hover:no-underline">
+                      {area}
+                      <span className="ml-2 text-sm font-normal text-muted-foreground">
+                        {careersByArea[area].length} {careersByArea[area].length === 1 ? "carrera" : "carreras"}
+                      </span>
+                    </AccordionTrigger>
+                    <AccordionContent className="pb-4">
+                      <div className="grid gap-4 md:grid-cols-2">
+                        {careersByArea[area].map((career) => (
+                          <CareerCard
+                            key={career.id}
+                            career={career}
+                            university={{
+                              id: university?.id,
+                              name: university?.name ?? "",
+                              city: university?.city ?? "",
+                              province: university?.province ?? "",
+                            }}
+                            isSaved={isSaved(career.id)}
+                            onSave={() => isSaved(career.id) ? remove(career.id) : save(career.id)}
+                            isComparing={isComparing(career.id)}
+                            canAddToCompare={canAdd}
+                            onCompare={() => isComparing(career.id) ? removeFromCompare(career.id) : addToCompare(career.id)}
+                          />
+                        ))}
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                ))}
+              </Accordion>
             </div>
           )}
 
           {/* Reseñas de la universidad */}
           <div className="space-y-4">
-            <h2 className="text-xl font-semibold">
-              Reseñas ({university?.reviews.length ?? 0})
-            </h2>
+            <h2 className="text-xl font-semibold">Reseñas</h2>
+            <ReviewForm
+              postUrl={`universities/${id}/reviews`}
+              onSuccess={refetch}
+              placeholder="Contá tu experiencia en esta universidad..."
+            />
             {university?.reviews.length === 0 ? (
               <EmptyState
                 icon={Star}
@@ -184,30 +197,39 @@ export default function UniversityDetailPage({
                 description="Sé el primero en compartir tu experiencia."
               />
             ) : (
-              university?.reviews.map((review) => (
-                <Card key={review.id}>
-                  <CardContent className="pt-6 space-y-3">
-                    <div className="flex items-center justify-between flex-wrap gap-2">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-sm">
-                          {review.authorName ?? "Anónimo"}
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          {new Date(review.createdAt).toLocaleDateString("es-AR", {
-                            day: "numeric",
-                            month: "long",
-                            year: "numeric",
-                          })}
-                        </span>
+              <Accordion className="rounded-lg border bg-card px-4">
+                {university?.reviews.map((review, index) => (
+                  <AccordionItem key={review.id} value={review.id}>
+                    <AccordionTrigger className="py-4 hover:no-underline">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-medium text-sm">
+                            {review.authorName ?? "Anónimo"}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            {new Date(review.createdAt).toLocaleDateString("es-AR", {
+                              day: "numeric",
+                              month: "long",
+                              year: "numeric",
+                            })}
+                          </span>
+                        </div>
+                        <div className="mt-1 flex items-center gap-3">
+                          <StarRating rating={review.rating} />
+                          <span className="text-xs text-muted-foreground">
+                            {index === 0 ? "Reseña destacada" : "Ver comentario completo"}
+                          </span>
+                        </div>
                       </div>
-                      <StarRating rating={review.rating} />
-                    </div>
-                    <p className="text-sm text-muted-foreground leading-relaxed">
-                      {review.content}
-                    </p>
-                  </CardContent>
-                </Card>
-              ))
+                    </AccordionTrigger>
+                    <AccordionContent className="pb-4">
+                      <p className="text-sm text-muted-foreground leading-relaxed">
+                        {review.content}
+                      </p>
+                    </AccordionContent>
+                  </AccordionItem>
+                ))}
+              </Accordion>
             )}
           </div>
         </>
