@@ -102,13 +102,13 @@ function UniversityRow({ option }: { option: CareerResult }) {
       className="group flex items-center gap-3 rounded-lg border bg-card px-3 py-2 hover:border-primary/40 hover:bg-muted/40 transition-colors"
     >
       <div className="flex-1 min-w-0 space-y-0.5">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium truncate group-hover:text-primary transition-colors">{u.name}</span>
+        <div className="flex items-start gap-2 min-w-0">
+          <span className="text-sm font-medium break-words min-w-0 group-hover:text-primary transition-colors">{u.name}</span>
           <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${u.type === "PUBLIC" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" : "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400"}`}>
             {u.type === "PUBLIC" ? "Pública" : "Privada"}
           </span>
         </div>
-        <p className="text-xs text-muted-foreground truncate">
+        <p className="text-xs text-muted-foreground break-words">
           {u.city}, {u.province} · {MODALITY_LABEL[option.modality]}
           {u.rating != null && ` · ⭐ ${u.rating}`}
         </p>
@@ -140,7 +140,7 @@ export function CareerResultCard({
 
   return (
     <div
-      className={`relative overflow-hidden rounded-xl border bg-card ${isHero ? "p-5 shadow-sm" : "p-4"}`}
+      className={`relative min-w-0 overflow-hidden rounded-xl border bg-card ${isHero ? "p-5 shadow-sm" : "p-4"}`}
     >
       <div className="absolute left-0 top-0 bottom-0 w-1" style={{ backgroundColor: color }} />
 
@@ -148,7 +148,7 @@ export function CareerResultCard({
         <div className="flex items-start gap-3">
           <CircularScore value={career.affinity} color={color} size={isHero ? 84 : 56} />
           <div className="flex-1 min-w-0 space-y-1">
-            <h3 className={`font-semibold leading-snug ${isHero ? "text-lg" : "text-sm"}`}>{career.name}</h3>
+            <h3 className={`font-semibold leading-snug break-words ${isHero ? "text-lg" : "text-sm"}`}>{career.name}</h3>
             <p className="text-xs text-muted-foreground">
               {AREA_EMOJIS[career.area.name]} {career.area.name} · {career.universities.length}{" "}
               {career.universities.length === 1 ? "universidad" : "universidades"}
@@ -158,8 +158,8 @@ export function CareerResultCard({
               <ul className="pt-1 space-y-1">
                 {reasons.map((r, i) => (
                   <li key={i} className="flex items-start gap-1.5 text-xs text-muted-foreground">
-                    <span className="mt-0.5" style={{ color }}>✓</span>
-                    <span>{r}</span>
+                    <span className="mt-0.5 shrink-0" style={{ color }}>✓</span>
+                    <span className="min-w-0 break-words">{r}</span>
                   </li>
                 ))}
               </ul>

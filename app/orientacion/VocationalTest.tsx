@@ -1366,8 +1366,12 @@ function ResultsCarousel({
         style={trackHeight !== undefined ? { height: trackHeight } : undefined}
         className="flex items-start overflow-x-scroll overflow-y-hidden snap-x snap-mandatory scroll-smooth transition-[height] duration-300 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
-        <div ref={slide1Ref} className="min-w-full shrink-0 snap-start">{slide1}</div>
-        <div ref={slide2Ref} className="min-w-full shrink-0 snap-start">{slide2}</div>
+        {/* w-full (no min-w-full): cada slide tiene un ancho DEFINIDO igual al
+            track. Con min-w-full el slide crecía hasta su contenido y el
+            ResponsiveContainer de recharts se realimentaba inflándose, lo que
+            generaba scroll horizontal. */}
+        <div ref={slide1Ref} className="w-full shrink-0 snap-start min-w-0">{slide1}</div>
+        <div ref={slide2Ref} className="w-full shrink-0 snap-start min-w-0">{slide2}</div>
       </div>
     </div>
   )
@@ -1667,9 +1671,10 @@ function ResultsScreen({
               />
             )}
 
-            {/* Secundarias: #2-4, en grilla compacta. No se muestra nada más. */}
+            {/* Secundarias: #2-4. La grilla escala según el ancho (1 → 2 → 3
+                columnas) para no forzar scroll horizontal. No se muestra nada más. */}
             {secondaryCareers.length > 0 && (
-              <div className="grid gap-3 sm:grid-cols-3">
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {secondaryCareers.map((g) => (
                   <CareerResultCard key={g.key} career={g} variant="secondary" reasons={[]} phase3Answers={phase3Answers} />
                 ))}
