@@ -10,6 +10,7 @@
     "lint": "next lint",
     "postinstall": "prisma generate",
     "db:seed": "tsx scripts/import-siu-data.ts",
+    "db:seed-reviews": "tsx scripts/seed-reviews.ts",
     "db:setup": "tsx scripts/setup-turso.ts",
     "scrape:siu": "tsx scripts/scrape-siu.ts",
     "scrape:siu:transform": "tsx scripts/transform-siu-data.ts"

@@ -34,6 +34,7 @@ import { ExportPDFButton } from "@/components/exportar"
 import { CareerDetailPanel, type CareerDetailFull } from "./CareerDetailPanel"
 import { EmptyState } from "@/components/empty-state"
 import { Search } from "lucide-react"
+import { PaginationControls } from "@/components/pagination-controls"
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
 
@@ -48,7 +49,7 @@ interface CareerResult {
   durationYears: number
   modality: "PRESENCIAL" | "HIBRIDO" | "ONLINE"
   rating: number | null
-  university: { id: string; name: string; city: string; type: "PUBLIC" | "PRIVATE" }
+  university: { id: string; name: string; city: string; type: "PUBLIC" | "PRIVATE"; rating: number | null }
   area: { id: string; name: string }
 }
 
@@ -425,6 +426,26 @@ function calcCareerScores(
   return normalized
 }
 
+// ─── Score final con boost de prestigio ──────────────────────────────────────
+// Combina afinidad vocacional con rating de carrera/universidad.
+// Si el usuario eligió PRESTIGE como prioridad: peso 70/30 (afinidad/prestigio).
+// En cualquier otro caso: los ratings actúan como tiebreaker suave (95/5).
+// Carreras sin reseñas reciben un valor neutro (0.5) para no penalizarlas.
+
+function calcFinalScore(
+  affinityScore: number,
+  careerRating: number | null,
+  universityRating: number | null,
+  prioritizePrestige: boolean
+): number {
+  const careerNorm = careerRating != null ? (careerRating - 1) / 4 : 0.5
+  const universityNorm = universityRating != null ? (universityRating - 1) / 4 : 0.5
+  const prestigeScore = careerNorm * 0.6 + universityNorm * 0.4
+  return prioritizePrestige
+    ? affinityScore * 0.70 + prestigeScore * 100 * 0.30
+    : affinityScore * 0.95 + prestigeScore * 100 * 0.05
+}
+
 // ─── Fase 3: preferencias prácticas (selección única) ────────────────────────
 
 interface Phase3Question {
@@ -462,9 +483,8 @@ const PHASE3_QUESTIONS: Phase3Question[] = [
       { value: "6", label: "6 años o más", description: "Medicina, arquitectura y similares" },
     ],
   },
-  // TODO: "mobility" y "priority" se recolectan pero todavía no se usan en
-  // ningún filtro de recomendación (ver ResultsScreen, que sólo filtra por
-  // modality/type/duration). Incorporarlos al filtro o dejar de pedirlos.
+  // "mobility" no aplica filtros. "priority=PRESTIGE" sí modifica el ranking
+  // de resultados a través de calcFinalScore().
   {
     id: "mobility",
     text: "¿Estás dispuesto/a a mudarte o viajar para estudiar?",
@@ -523,13 +543,14 @@ function getGlobalTotal(top3Areas: string[]): number {
 
 const MIN_RESULTS = 4
 const AFFINITY_THRESHOLD = 50
+const RESULTS_PAGE_SIZE = 24
 
 // ─── Generación de respuestas aleatorias (testing) ───────────────────────────
 
 // Genera un perfil completo con respuestas aleatorias, listo para guardar con
 // saveProfile(). Útil para probar la pantalla de resultados sin completar el
 // test manualmente (p. ej. en un build limpio sin perfil guardado).
-export function generateRandomProfile() {
+export function generateRandomProfile(forcePriority?: "PRESTIGE" | "EMPLOYMENT" | "COST" | "LOCATION") {
   const p1: Record<number, number> = {}
   PHASE1_QUESTIONS.forEach((_, i) => { p1[i] = Math.floor(Math.random() * 5) })
 
@@ -546,7 +567,9 @@ export function generateRandomProfile() {
 
   const p3: Record<string, string> = {}
   PHASE3_QUESTIONS.forEach(q => {
-    p3[q.id] = q.options[Math.floor(Math.random() * q.options.length)].value
+    p3[q.id] = q.id === "priority" && forcePriority
+      ? forcePriority
+      : q.options[Math.floor(Math.random() * q.options.length)].value
   })
 
   const topArea = sorted[0]?.[0] ?? ""
@@ -626,7 +649,9 @@ export function VocationalTest({
     try {
       const results = await Promise.all(
         top3Ids.map((id) =>
-          fetch(`/api/careers?areaId=${id}`).then((r) => r.json() as Promise<CareerResult[]>)
+          fetch(`/api/careers?areaId=${id}&pageSize=10000`)
+            .then((r) => r.json())
+            .then((j) => j.data as CareerResult[])
         )
       )
       const merged: CareerResult[] = []
@@ -637,7 +662,11 @@ export function VocationalTest({
         }
       }
       const cs = calcCareerScores(savedPhase2, top3)
-      merged.sort((a, b) => getCareerAffinity(cs, b.name) - getCareerAffinity(cs, a.name))
+      const prestige = profile.phase3Answers?.["priority"] === "PRESTIGE"
+      merged.sort((a, b) =>
+        calcFinalScore(getCareerAffinity(cs, b.name), b.rating, b.university.rating, prestige) -
+        calcFinalScore(getCareerAffinity(cs, a.name), a.rating, a.university.rating, prestige)
+      )
       setCareers(merged)
     } catch {
       // silently ignore
@@ -670,7 +699,9 @@ export function VocationalTest({
     try {
       const results = await Promise.all(
         top3Ids.map((id) =>
-          fetch(`/api/careers?areaId=${id}`).then((r) => r.json() as Promise<CareerResult[]>)
+          fetch(`/api/careers?areaId=${id}&pageSize=10000`)
+            .then((r) => r.json())
+            .then((j) => j.data as CareerResult[])
         )
       )
       const merged: CareerResult[] = []
@@ -681,7 +712,11 @@ export function VocationalTest({
         }
       }
 
-      merged.sort((a, b) => getCareerAffinity(computed, b.name) - getCareerAffinity(computed, a.name))
+      const prestige = phase3Answers["priority"] === "PRESTIGE"
+      merged.sort((a, b) =>
+        calcFinalScore(getCareerAffinity(computed, b.name), b.rating, b.university.rating, prestige) -
+        calcFinalScore(getCareerAffinity(computed, a.name), a.rating, a.university.rating, prestige)
+      )
       setCareers(merged)
     } catch {
       // silently ignore
@@ -705,8 +740,8 @@ export function VocationalTest({
     setSaved(false)
   }
 
-  async function fillRandomAndSave() {
-    const { phase1Answers: p1, phase2Answers: p2, phase3Answers: p3, scores, sorted, top3, topArea } = generateRandomProfile()
+  async function fillRandomAndSave(forcePriority?: "PRESTIGE" | "EMPLOYMENT") {
+    const { phase1Answers: p1, phase2Answers: p2, phase3Answers: p3, scores, sorted, top3, topArea } = generateRandomProfile(forcePriority)
     const computed = calcCareerScores(p2, top3)
 
     setPhase1Answers(p1)
@@ -724,7 +759,11 @@ export function VocationalTest({
     const top3Ids = top3.map(name => areas.find(a => a.name === name)?.id).filter(Boolean) as string[]
     try {
       const results = await Promise.all(
-        top3Ids.map(id => fetch(`/api/careers?areaId=${id}`).then(r => r.json() as Promise<CareerResult[]>))
+        top3Ids.map(id =>
+          fetch(`/api/careers?areaId=${id}&pageSize=10000`)
+            .then(r => r.json())
+            .then(j => j.data as CareerResult[])
+        )
       )
       const merged: CareerResult[] = []
       const seen = new Set<string>()
@@ -733,7 +772,10 @@ export function VocationalTest({
           if (!seen.has(c.id)) { seen.add(c.id); merged.push(c) }
         }
       }
-      merged.sort((a, b) => getCareerAffinity(computed, b.name) - getCareerAffinity(computed, a.name))
+      merged.sort((a, b) =>
+        calcFinalScore(getCareerAffinity(computed, b.name), b.rating, b.university.rating, p3["priority"] === "PRESTIGE") -
+        calcFinalScore(getCareerAffinity(computed, a.name), a.rating, a.university.rating, p3["priority"] === "PRESTIGE")
+      )
       setCareers(merged)
     } catch {}
     finally { setLoadingCareers(false) }
@@ -771,12 +813,18 @@ export function VocationalTest({
       <>
         <IntroScreen onStart={() => setStep(1)} />
         {process.env.NODE_ENV === "development" && (forceIntro || !onClose) && (
-          <div className="fixed bottom-4 right-4 z-50">
+          <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-1.5">
             <button
-              onClick={fillRandomAndSave}
+              onClick={() => fillRandomAndSave("PRESTIGE")}
+              className="cursor-pointer rounded-lg bg-amber-400 px-3 py-2 text-xs font-semibold text-amber-900 shadow-lg hover:bg-amber-300 transition-colors"
+            >
+              ⭐ Con prestigio
+            </button>
+            <button
+              onClick={() => fillRandomAndSave("EMPLOYMENT")}
               className="cursor-pointer rounded-lg bg-yellow-400 px-3 py-2 text-xs font-semibold text-yellow-900 shadow-lg hover:bg-yellow-300 transition-colors"
             >
-              🎲 Rellenar aleatorio
+              🎲 Sin prestigio
             </button>
           </div>
         )}
@@ -1306,8 +1354,11 @@ function ResultsScreen({
   onReset: () => void
 }) {
   const [selectedAreas, setSelectedAreas] = useState<Set<string>>(new Set())
+  const [resultsPage, setResultsPage] = useState(1)
   const [activeSlide, setActiveSlide] = useState(0)
   const { set: setCompareIds } = useCompareCareers()
+
+  const prioritizePrestige = phase3Answers["priority"] === "PRESTIGE"
 
   const radarData = sortedPhase1.map(([name, score]) => ({
     area: name.replace("Ciencias ", "Cs. ").replace(" y ", "\ny "),
@@ -1321,9 +1372,12 @@ function ResultsScreen({
   // the useEffect below to see a changed dependency on every render and loop.
   const scoredCareers = useMemo(() =>
     careers
-      .map(c => ({ ...c, affinity: getCareerAffinity(careerScores, c.name) }))
-      .sort((a, b) => b.affinity - a.affinity),
-    [careers, careerScores]
+      .map(c => {
+        const affinity = getCareerAffinity(careerScores, c.name)
+        return { ...c, affinity, finalScore: calcFinalScore(affinity, c.rating, c.university.rating, prioritizePrestige) }
+      })
+      .sort((a, b) => b.finalScore - a.finalScore),
+    [careers, careerScores, prioritizePrestige]
   )
 
   const filteredByView = useMemo(() => {
@@ -1336,6 +1390,13 @@ function ResultsScreen({
   }, [scoredCareers, selectedAreas])
 
   const topN = useMemo(() => filteredByView.slice(0, MAX_COMPARE), [filteredByView])
+
+  const resultsTotalPages = Math.max(1, Math.ceil(filteredByView.length / RESULTS_PAGE_SIZE))
+  const resultsCurrentPage = Math.min(resultsPage, resultsTotalPages)
+  const resultsPageItems = useMemo(
+    () => filteredByView.slice((resultsCurrentPage - 1) * RESULTS_PAGE_SIZE, resultsCurrentPage * RESULTS_PAGE_SIZE),
+    [filteredByView, resultsCurrentPage]
+  )
   const comparisonIds = useMemo(() => topN.map(c => c.id), [topN])
   const isSingle = comparisonIds.length === 1
 
@@ -1368,10 +1429,12 @@ function ResultsScreen({
       next.has(area) ? next.delete(area) : next.add(area)
       return next
     })
+    setResultsPage(1)
   }
 
   function clearAreas() {
     setSelectedAreas(new Set())
+    setResultsPage(1)
   }
 
   // Phase 3 preference filters
@@ -1456,9 +1519,14 @@ function ResultsScreen({
 
       {/* ── Carreras más compatibles: ranked list + toggle + comparador ── */}
       <section className="space-y-4">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <Trophy className="size-5 text-yellow-500" />
           <h2 className="text-lg font-semibold">Carreras más compatibles</h2>
+          {prioritizePrestige && (
+            <span className="text-xs rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 px-2 py-0.5 font-medium">
+              ⭐ Ordenadas por prestigio
+            </span>
+          )}
         </div>
 
         {/* Area filter chips */}
@@ -1505,7 +1573,8 @@ function ResultsScreen({
           </p>
         ) : (
           <div className="grid gap-2 lg:grid-cols-2">
-            {filteredByView.map((career, i) => {
+            {resultsPageItems.map((career, pageIndex) => {
+              const i = (resultsCurrentPage - 1) * RESULTS_PAGE_SIZE + pageIndex
               const color = AREA_COLORS[career.area.name] ?? "hsl(var(--primary))"
               const isTopN = i < MAX_COMPARE
               return (
@@ -1537,6 +1606,7 @@ function ResultsScreen({
                       </div>
                       <p className="text-xs text-muted-foreground truncate">
                         {career.university.name} · {AREA_EMOJIS[career.area.name]} {career.area.name}
+                        {career.rating != null && ` · ⭐ ${career.rating}`}
                       </p>
                     </div>
                     <ArrowRight className="size-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
@@ -1546,6 +1616,8 @@ function ResultsScreen({
             })}
           </div>
         )}
+
+        <PaginationControls page={resultsCurrentPage} totalPages={resultsTotalPages} onPageChange={setResultsPage} />
 
       </section>
 
@@ -1559,7 +1631,10 @@ function ResultsScreen({
           if (typePref && typePref !== "ANY" && c.university.type !== typePref) return false
           if (durationPref && durationPref !== "6" && c.durationYears > parseInt(durationPref)) return false
           return true
-        }).sort((a, b) => getCareerAffinity(careerScores, b.name) - getCareerAffinity(careerScores, a.name))
+        }).sort((a, b) =>
+          calcFinalScore(getCareerAffinity(careerScores, b.name), b.rating, b.university.rating, prioritizePrestige) -
+          calcFinalScore(getCareerAffinity(careerScores, a.name), a.rating, a.university.rating, prioritizePrestige)
+        )
 
         return (
           <section className="space-y-4 rounded-xl border border-primary/20 bg-primary/5 p-5">

@@ -11,6 +11,7 @@ import { StarRating } from "@/components/star-rating"
 import { useSavedCareers } from "@/app/mis-carreras/page"
 import { useCompareCareers } from "@/hooks/use-compare-careers"
 import { EmptyState } from "@/components/empty-state"
+import { ReviewForm } from "@/components/review-form"
 import { Star } from "lucide-react"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 
@@ -59,7 +60,7 @@ export default function UniversityDetailPage({
   const { isSaved, save, remove } = useSavedCareers()
   const { isComparing, canAdd, add: addToCompare, remove: removeFromCompare } = useCompareCareers()
 
-  const { data, isLoading, isError } = useApiQuery<UniversityCareersResponse>(
+  const { data, isLoading, isError, refetch } = useApiQuery<UniversityCareersResponse>(
     ["university-careers", id],
     `universities/${id}/careers`
   )
@@ -184,6 +185,11 @@ export default function UniversityDetailPage({
           {/* Reseñas de la universidad */}
           <div className="space-y-4">
             <h2 className="text-xl font-semibold">Reseñas</h2>
+            <ReviewForm
+              postUrl={`universities/${id}/reviews`}
+              onSuccess={refetch}
+              placeholder="Contá tu experiencia en esta universidad..."
+            />
             {university?.reviews.length === 0 ? (
               <EmptyState
                 icon={Star}
