@@ -1,15 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { UniversityType } from "@/lib/generated/prisma/enums";
-
-// Normaliza para que la búsqueda ignore mayúsculas/minúsculas y tildes
-// (SQLite no tiene collation con folding de acentos, así que se compara en JS).
-function normalize(value: string): string {
-  return value
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase();
-}
+import { normalize } from "@/lib/normalize";
 
 type SortBy = "name" | "rating" | "careers";
 type SortDir = "asc" | "desc";
@@ -27,6 +19,7 @@ export async function GET(req: NextRequest) {
     include: {
       _count: { select: { careers: true } },
       reviews: { select: { rating: true } },
+      ranking: { select: { rank: true, rankLabel: true } },
     },
     orderBy: { name: "asc" },
   });
@@ -37,12 +30,18 @@ export async function GET(req: NextRequest) {
     : universities;
 
   const data = filtered.map((u) => {
-    const { reviews, _count, ...rest } = u;
+    const { reviews, _count, ranking, ...rest } = u;
     const rating =
       reviews.length > 0
         ? Math.round((reviews.reduce((s, r) => s + r.rating, 0) / reviews.length) * 10) / 10
         : null;
-    return { ...rest, careerCount: _count.careers, rating };
+    return {
+      ...rest,
+      careerCount: _count.careers,
+      rating,
+      qsRank: ranking?.rank ?? null,
+      qsRankLabel: ranking?.rankLabel ?? null,
+    };
   });
 
   const dirMultiplier = sortDir === "asc" ? 1 : -1;

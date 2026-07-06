@@ -40,6 +40,8 @@ type University = {
   logoUrl: string | null
   careerCount: number
   rating: number | null
+  qsRank: number | null
+  qsRankLabel: string | null
 }
 
 function UniversityLogo({ name, logoUrl }: { name: string; logoUrl: string | null }) {
@@ -222,7 +224,7 @@ function UniversidadesPageContent() {
                       <div>
                         <CardTitle className="text-lg flex items-center gap-2 flex-wrap">
                           {uni.name}
-                          {isPrestigious(uni.rating) && <PrestigeBadge />}
+                          {isPrestigious(uni.qsRank) && <PrestigeBadge rankLabel={uni.qsRankLabel} />}
                         </CardTitle>
                         {uni.foundedYear && (
                           <CardDescription className="mt-1">

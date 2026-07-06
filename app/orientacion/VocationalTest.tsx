@@ -1585,7 +1585,7 @@ function ResultsScreen({
         : null
   const orderedRows = useMemo(() => {
     const keyOf = (c: typeof filteredByView[number]) =>
-      rowSortKeys({ province: c.university.province, type: c.university.type, modality: c.modality, rating: c.university.rating, affinity: c.affinity }, sortCtx)
+      rowSortKeys({ province: c.university.province, type: c.university.type, modality: c.modality, rating: c.university.rating, qsRank: c.university.qsRank, affinity: c.affinity }, sortCtx)
     return [...filteredByView].sort((a, b) => {
       const cmp = compareSortKeys(keyOf(a), keyOf(b))
       return cmp !== 0 ? cmp : a.university.name.localeCompare(b.university.name, "es")

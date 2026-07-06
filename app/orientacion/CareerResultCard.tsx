@@ -14,7 +14,7 @@ export interface CareerResult {
   durationYears: number
   modality: "PRESENCIAL" | "HIBRIDO" | "ONLINE"
   rating: number | null
-  university: { id: string; name: string; city: string; province: string; type: "PUBLIC" | "PRIVATE"; rating: number | null }
+  university: { id: string; name: string; city: string; province: string; type: "PUBLIC" | "PRIVATE"; rating: number | null; qsRank: number | null; qsRankLabel: string | null }
   area: { id: string; name: string }
 }
 
@@ -70,21 +70,34 @@ export interface SortRow {
   type: "PUBLIC" | "PRIVATE"
   modality: "PRESENCIAL" | "HIBRIDO" | "ONLINE"
   rating: number | null
+  qsRank: number | null // puesto en el ranking QS; null = no está en el ranking
   affinity?: number // presente al ordenar carreras; constante dentro de un card
 }
 
 // Claves lexicográficas ascendentes (0 = mejor). Orden:
-// provincia (si provinceFirst) → señal de prioridad → afinidad → tipo → modalidad → rating.
+// provincia (si provinceFirst) → señal de prioridad / afinidad → tipo → modalidad → desempate.
 export function rowSortKeys(row: SortRow, ctx: SortContext): number[] {
   const keys: number[] = []
   if (ctx.provinceFirst) keys.push(row.province === ctx.residence ? 0 : 1)
-  // Señal de prioridad: PRESTIGE → rating; COST → pública primero; LOCATION/EMPLOYMENT → ninguna.
-  if (ctx.priority === "PRESTIGE") keys.push(row.rating != null ? 5 - row.rating : 5)
-  else if (ctx.priority === "COST") keys.push(row.type === "PUBLIC" ? 0 : 1)
-  keys.push(100 - (row.affinity ?? 0)) // afinidad desc (constante dentro de un card)
+  // Señal de prioridad:
+  // - PRESTIGE → afinidad primero (los cards siguen ordenados por match vocacional; dentro de un
+  //   card es constante), luego prestigio QS (ranked-first, unranked-last). El desempate es
+  //   alfabético (lo resuelve el localeCompare de nombre en el call site).
+  // - COST → pública primero, luego afinidad.
+  // - LOCATION/EMPLOYMENT/default → solo afinidad.
+  if (ctx.priority === "PRESTIGE") {
+    keys.push(100 - (row.affinity ?? 0)) // afinidad desc
+    keys.push(row.qsRank != null ? 0 : 1) // en el ranking QS primero
+  } else if (ctx.priority === "COST") {
+    keys.push(row.type === "PUBLIC" ? 0 : 1)
+    keys.push(100 - (row.affinity ?? 0))
+  } else {
+    keys.push(100 - (row.affinity ?? 0))
+  }
   if (ctx.typePref && ctx.typePref !== "ANY") keys.push(row.type === ctx.typePref ? 0 : 1)
   if (ctx.modalityPref && ctx.modalityPref !== "ANY") keys.push(row.modality === ctx.modalityPref ? 0 : 1)
-  keys.push(row.rating != null ? 5 - row.rating : 5) // tiebreak general por rating
+  // Desempate general por rating, excepto en PRESTIGE donde es alfabético (name fallback).
+  if (ctx.priority !== "PRESTIGE") keys.push(row.rating != null ? 5 - row.rating : 5)
   return keys
 }
 
@@ -104,7 +117,7 @@ export function orderUniversities(
 ): CareerResult[] {
   const ctx = deriveSortContext(phase3Answers)
   const keyOf = (c: CareerResult) =>
-    rowSortKeys({ province: c.university.province, type: c.university.type, modality: c.modality, rating: c.university.rating }, ctx)
+    rowSortKeys({ province: c.university.province, type: c.university.type, modality: c.modality, rating: c.university.rating, qsRank: c.university.qsRank }, ctx)
   return [...universities].sort((a, b) => {
     const cmp = compareSortKeys(keyOf(a), keyOf(b))
     return cmp !== 0 ? cmp : a.university.name.localeCompare(b.university.name, "es")
@@ -152,7 +165,7 @@ function UniversityRow({ option }: { option: CareerResult }) {
       <div className="flex-1 min-w-0 space-y-0.5">
         <div className="flex items-start gap-2 min-w-0">
           <span className="text-sm font-medium break-words min-w-0 group-hover:text-primary transition-colors">{u.name}</span>
-          {isPrestigious(u.rating) && <PrestigeBadge />}
+          {isPrestigious(u.qsRank) && <PrestigeBadge rankLabel={u.qsRankLabel} />}
           <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${u.type === "PUBLIC" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" : "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400"}`}>
             {u.type === "PUBLIC" ? "Pública" : "Privada"}
           </span>

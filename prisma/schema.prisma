@@ -31,6 +31,22 @@ model University {
   logoUrl          String?
   careers          Career[]
   reviews          UniversityReview[]
+  ranking          UniversityRanking?
+}
+
+// Posición de la universidad en un ranking externo (QS World University
+// Rankings). La presencia de una fila marca a la universidad como "prestigiosa".
+// Relacional 1:1 con University; el par (source, year) permite versionar rankings.
+model UniversityRanking {
+  id           String     @id @default(cuid())
+  universityId String     @unique
+  university   University @relation(fields: [universityId], references: [id])
+  source       String     // p. ej. "QS_WORLD_2026"
+  year         Int        // p. ej. 2026
+  rank         Int        // clave numérica de orden = límite inferior del rango (84, 474, 801, 1201, 1401)
+  rankLabel    String     // etiqueta para mostrar: "84", "801-850", "1201-1400", "1401+"
+
+  @@unique([universityId, source, year])
 }
 
 model Area {

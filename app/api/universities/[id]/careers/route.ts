@@ -23,6 +23,7 @@ export async function GET(
           orderBy: { createdAt: "desc" },
           select: { id: true, rating: true, content: true, authorName: true, createdAt: true },
         },
+        ranking: { select: { rank: true, rankLabel: true } },
       },
     });
 
@@ -88,6 +89,8 @@ export async function GET(
         description: university.description,
         logoUrl: university.logoUrl,
         reviews: university.reviews,
+        qsRank: university.ranking?.rank ?? null,
+        qsRankLabel: university.ranking?.rankLabel ?? null,
       },
       careersByArea,
     });

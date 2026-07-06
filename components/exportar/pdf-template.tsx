@@ -7,7 +7,7 @@ export type CareerDetail = {
   degreeTitle: string
   modality: "PRESENCIAL" | "HIBRIDO" | "ONLINE"
   description: string | null
-  university: { name: string; city: string; province: string; type: string; rating: number | null }
+  university: { name: string; city: string; province: string; type: string; rating: number | null; qsRank: number | null; qsRankLabel: string | null }
   area: { id?: string; name: string }
   rating: number | null
   reviewCount: number
@@ -83,8 +83,10 @@ function PDFCareerCard({ career, color }: { career: CareerDetail; color: string 
       </h3>
       <p style={{ fontSize: "11px", color: "#6b7280", margin: "0 0 16px", display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
         <span>{universityLabel(career.university)}</span>
-        {career.university.rating !== null && career.university.rating >= 4.8 && (
-          <span style={{ border: "1px solid #d4af37", color: "#b8860b", backgroundColor: "#fffbeb", borderRadius: "9999px", padding: "1px 6px", fontSize: "9px", fontWeight: 600, whiteSpace: "nowrap" }}>
+        {career.university.qsRank !== null && (
+          <span
+            title={career.university.qsRankLabel ? `QS World University Rankings #${career.university.qsRankLabel}` : undefined}
+            style={{ border: "1px solid #d4af37", color: "#b8860b", backgroundColor: "#fffbeb", borderRadius: "9999px", padding: "1px 6px", fontSize: "9px", fontWeight: 600, whiteSpace: "nowrap" }}>
             ✦ Prestigiosa
           </span>
         )}

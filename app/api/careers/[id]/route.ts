@@ -32,6 +32,7 @@ export async function GET(
           description: true,
           logoUrl: true,
           reviews: { select: { rating: true } },
+          ranking: { select: { rank: true, rankLabel: true } },
           _count: { select: { careers: true } },
         },
       },
@@ -69,7 +70,7 @@ export async function GET(
   }
 
   const { university, reviews: careerReviews, ...careerRest } = career;
-  const { reviews: uniReviews, _count, ...universityRest } = university;
+  const { reviews: uniReviews, ranking, _count, ...universityRest } = university;
 
   const rating =
     careerReviews.length > 0
@@ -95,6 +96,8 @@ export async function GET(
       careerCount: _count.careers,
       rating: universityRating,
       reviewCount: uniReviews.length,
+      qsRank: ranking?.rank ?? null,
+      qsRankLabel: ranking?.rankLabel ?? null,
     },
   });
 }

@@ -36,6 +36,8 @@ type UniversityCareersResponse = {
     description: string | null
     logoUrl: string | null
     reviews: Review[]
+    qsRank: number | null
+    qsRankLabel: string | null
   }
   careersByArea: Record<
     string,
@@ -96,7 +98,7 @@ export default function UniversityDetailPage({
         ) : (
           <h1 className="text-3xl lg:text-4xl font-bold flex items-center gap-3 flex-wrap">
             {university?.name}
-            {isPrestigious(uniRating) && <PrestigeBadge />}
+            {isPrestigious(university?.qsRank) && <PrestigeBadge rankLabel={university?.qsRankLabel} />}
           </h1>
         )}
       </div>

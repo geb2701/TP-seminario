@@ -15,7 +15,7 @@ export type CompareCareer = {
   degreeTitle: string
   modality: "PRESENCIAL" | "HIBRIDO" | "ONLINE"
   description: string | null
-  university: { name: string; city: string; province: string; type: string; rating: number | null }
+  university: { name: string; city: string; province: string; type: string; rating: number | null; qsRank: number | null; qsRankLabel: string | null }
   area: { name: string }
   rating: number | null
   reviewCount: number
