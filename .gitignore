@@ -53,3 +53,5 @@ scripts/.recon-tmp/
 .claude/
 
 /lib/generated/prisma
+pnpm-lock.yaml
+pnpm-workspace.yaml
