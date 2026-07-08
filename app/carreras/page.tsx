@@ -33,7 +33,8 @@ type Career = {
   description: string | null
   university: { id: string; name: string; city: string; province: string }
   area: { id: string; name: string }
-  rating: number | null
+  recommended: boolean
+  recommendedRankLabel: string | null
 }
 
 type CareersResponse = {

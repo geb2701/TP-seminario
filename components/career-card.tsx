@@ -4,6 +4,7 @@ import { Button, buttonVariants } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { MapPin, Clock, Bookmark, BookmarkCheck, Scale, Building2, Trash2 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { RecommendedBadge, isRecommended } from "@/components/recommended-badge"
 
 const MODALITY_LABEL: Record<string, string> = {
   PRESENCIAL: "Presencial",
@@ -17,7 +18,8 @@ type CareerCardProps = {
     name: string
     modality: string
     durationYears: number
-    rating: number | null
+    recommended?: boolean
+    recommendedRankLabel?: string | null
   }
   university: {
     id?: string
@@ -50,7 +52,10 @@ export function CareerCard({
       <CardHeader>
         <div className="flex items-start justify-between gap-2">
           <div>
-            <CardTitle className="text-lg">{career.name}</CardTitle>
+            <CardTitle className="text-lg flex items-center gap-2 flex-wrap">
+              {career.name}
+              {isRecommended(career.recommended) && <RecommendedBadge rankLabel={career.recommendedRankLabel} />}
+            </CardTitle>
             <CardDescription className="mt-1">{university.name}</CardDescription>
           </div>
           <Badge variant="outline">
@@ -67,9 +72,6 @@ export function CareerCard({
           <div className="flex items-center gap-2 text-muted-foreground">
             <Clock className="h-4 w-4 shrink-0" />
             {career.durationYears} {career.durationYears === 1 ? "año" : "años"}
-          </div>
-          <div className="flex items-center gap-2 text-muted-foreground">
-            {career.rating !== null ? `⭐ ${career.rating} / 5.0` : "Sin reseñas"}
           </div>
         </div>
         <div className="flex gap-2">

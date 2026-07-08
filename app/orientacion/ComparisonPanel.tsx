@@ -7,6 +7,8 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Cell } from "recharts"
 import { AREA_EMOJIS, getCareerAffinity } from "./constants"
+import { PrestigeBadge, isPrestigious } from "@/components/prestige-badge"
+import { RecommendedBadge, isRecommended } from "@/components/recommended-badge"
 
 export type CompareCareer = {
   id: string
@@ -15,10 +17,10 @@ export type CompareCareer = {
   degreeTitle: string
   modality: "PRESENCIAL" | "HIBRIDO" | "ONLINE"
   description: string | null
-  university: { name: string; city: string; province: string; type: string; rating: number | null; qsRank: number | null; qsRankLabel: string | null }
+  university: { name: string; city: string; province: string; type: string; qsRank: number | null; qsRankLabel: string | null }
   area: { name: string }
-  rating: number | null
-  reviewCount: number
+  recommended: boolean
+  recommendedRankLabel: string | null
   studyPlans: {
     id: string
     year: number
@@ -120,7 +122,6 @@ export function ComparisonPanel({
   }, [data])
 
   const durationData = data?.map((c) => ({ name: c.name, shortName: shortName(c.name), value: c.durationYears })) ?? []
-  const ratingData   = data?.map((c) => ({ name: c.name, shortName: shortName(c.name), value: c.rating })) ?? []
   const subjectsData = data?.map((c) => ({
     name: c.name,
     shortName: shortName(c.name),
@@ -134,7 +135,15 @@ export function ComparisonPanel({
         ? <span className="font-semibold text-primary">{score}%</span>
         : <span className="text-muted-foreground">—</span>
     }},
-    { label: "Universidad",        render: (c) => c.university.name },
+    {
+      label: "Universidad",
+      render: (c) => (
+        <span className="inline-flex items-center gap-1.5 flex-wrap justify-center">
+          {c.university.name}
+          {isPrestigious(c.university.qsRank) && <PrestigeBadge rankLabel={c.university.qsRankLabel} />}
+        </span>
+      ),
+    },
     { label: "Localidad",          render: (c) => `${c.university.city}, ${c.university.province}` },
     { label: "Tipo de institución", render: (c) => c.university.type === "PUBLIC" ? "Pública" : "Privada" },
     { label: "Área",               render: (c) => `${AREA_EMOJIS[c.area.name] ?? ""} ${c.area.name}` },
@@ -142,8 +151,8 @@ export function ComparisonPanel({
     { label: "Duración",           render: (c) => `${c.durationYears} años` },
     { label: "Modalidad",          render: (c) => <Badge variant="outline">{MODALITY_LABEL[c.modality]}</Badge> },
     {
-      label: "Calificación",
-      render: (c) => c.rating !== null ? `⭐ ${c.rating} / 5.0 (${c.reviewCount} reseñas)` : "Sin reseñas",
+      label: "Recomendada",
+      render: (c) => isRecommended(c.recommended) ? <RecommendedBadge rankLabel={c.recommendedRankLabel} /> : "—",
     },
   ]
 
@@ -244,12 +253,6 @@ export function ComparisonPanel({
               data={subjectsData}
               formatter={(v) => `${v} materia${v !== 1 ? "s" : ""}`}
               tickFormatter={(v) => String(v)}
-            />
-            <MetricBarChart
-              title="Calificación promedio"
-              data={ratingData}
-              formatter={(v) => `${v} / 5`}
-              domain={[0, 5]}
             />
           </div>
         </section>

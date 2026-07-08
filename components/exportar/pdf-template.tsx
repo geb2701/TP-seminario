@@ -7,10 +7,10 @@ export type CareerDetail = {
   degreeTitle: string
   modality: "PRESENCIAL" | "HIBRIDO" | "ONLINE"
   description: string | null
-  university: { name: string; city: string; province: string; type: string; rating: number | null; qsRank: number | null; qsRankLabel: string | null }
+  university: { name: string; city: string; province: string; type: string; qsRank: number | null; qsRankLabel: string | null }
   area: { id?: string; name: string }
-  rating: number | null
-  reviewCount: number
+  recommended: boolean
+  recommendedRankLabel: string | null
   studyPlans: {
     id: string
     year: number
@@ -26,11 +26,6 @@ const MODALITY_LABEL: Record<string, string> = {
 
 export const PDF_COLORS = ["#4f46e5", "#7c3aed", "#0891b2", "#059669"]
 
-// Nombre de la universidad con su puntaje de reseñas al lado:
-// "Universidad de Buenos Aires - ⭐ 4.6" o "… - Sin reseñas".
-function universityLabel(u: { name: string; rating: number | null }): string {
-  return `${u.name} - ${u.rating !== null ? `⭐ ${u.rating}` : "Sin reseñas"}`
-}
 
 function PDFSectionTitle({ children }: { children: React.ReactNode }) {
   return (
@@ -62,8 +57,8 @@ function PDFMetricBar({
 
 function PDFCareerCard({ career, color }: { career: CareerDetail; color: string }) {
   const totalSubjects = career.studyPlans.reduce((s, p) => s + p.subjects.length, 0)
-  // "Materias" depende del plan de estudios, que el dataset actual no trae:
-  // solo se muestra si hay datos. "Calificación" (reseñas) se muestra siempre.
+  // "Materias" depende del plan de estudios, que el dataset actual no siempre trae:
+  // solo se muestra si hay datos.
   const fields: [string, string][] = [
     ["Área", career.area.name],
     ["Institución", career.university.type === "PUBLIC" ? "Pública" : "Privada"],
@@ -73,7 +68,6 @@ function PDFCareerCard({ career, color }: { career: CareerDetail; color: string 
     ["Título", career.degreeTitle],
   ]
   if (totalSubjects > 0) fields.push(["Materias", `${totalSubjects} en total`])
-  fields.push(["Calificación", career.rating !== null ? `${career.rating} / 5.0 (${career.reviewCount} reseñas)` : "Sin reseñas"])
 
   return (
     <div style={{ border: `2px solid ${color}`, borderRadius: "10px", padding: "20px", backgroundColor: "#fafafa" }}>
@@ -82,12 +76,19 @@ function PDFCareerCard({ career, color }: { career: CareerDetail; color: string 
         {career.name}
       </h3>
       <p style={{ fontSize: "11px", color: "#6b7280", margin: "0 0 16px", display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
-        <span>{universityLabel(career.university)}</span>
+        <span>{career.university.name}</span>
         {career.university.qsRank !== null && (
           <span
             title={career.university.qsRankLabel ? `QS World University Rankings #${career.university.qsRankLabel}` : undefined}
             style={{ border: "1px solid #d4af37", color: "#b8860b", backgroundColor: "#fffbeb", borderRadius: "9999px", padding: "1px 6px", fontSize: "9px", fontWeight: 600, whiteSpace: "nowrap" }}>
             ✦ Prestigiosa
+          </span>
+        )}
+        {career.recommended && (
+          <span
+            title={career.recommendedRankLabel ? `QS por disciplina #${career.recommendedRankLabel}` : undefined}
+            style={{ border: "1px solid #3b82f6", color: "#2563eb", backgroundColor: "#eff6ff", borderRadius: "9999px", padding: "1px 6px", fontSize: "9px", fontWeight: 600, whiteSpace: "nowrap" }}>
+            ✓ Recomendada
           </span>
         )}
       </p>
@@ -111,7 +112,7 @@ export function PDFExportTemplate({ careers }: { careers: CareerDetail[] }) {
   const maxSubjects = Math.max(...careers.map((c) => c.studyPlans.reduce((s, p) => s + p.subjects.length, 0)), 1)
 
   // "Total de materias" depende del plan de estudios (ausente en el dataset
-  // actual): solo se incluye si hay datos. "Calificación" (reseñas) va siempre.
+  // actual): solo se incluye si hay datos.
   const anySubjects = careers.some((c) => c.studyPlans.some((p) => p.subjects.length > 0))
 
   const cardCols = careers.length <= 2 ? careers.length : 2
@@ -126,7 +127,7 @@ export function PDFExportTemplate({ careers }: { careers: CareerDetail[] }) {
     ["Modalidad", (c) => MODALITY_LABEL[c.modality]],
   ]
   if (anySubjects) tableRows.push(["Total de materias", (c) => `${c.studyPlans.reduce((s, p) => s + p.subjects.length, 0)}`])
-  tableRows.push(["Calificación", (c) => c.rating !== null ? `${c.rating} / 5.0 (${c.reviewCount} reseñas)` : "Sin reseñas"])
+  tableRows.push(["Recomendada", (c) => c.recommended ? (c.recommendedRankLabel ? `Sí (QS #${c.recommendedRankLabel})` : "Sí") : "—"])
 
   return (
     <div style={{ fontFamily: "'Segoe UI', Arial, sans-serif", color: "#111827", padding: "48px 56px", backgroundColor: "#ffffff", width: "100%" }}>

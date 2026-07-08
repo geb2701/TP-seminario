@@ -7,22 +7,10 @@ import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { CareerCard } from "@/components/career-card"
 import { UniversityInfoCard } from "@/components/university-info-card"
-import { StarRating } from "@/components/star-rating"
 import { useSavedCareers } from "@/app/mis-carreras/page"
 import { useCompareCareers } from "@/hooks/use-compare-careers"
-import { EmptyState } from "@/components/empty-state"
-import { ReviewForm } from "@/components/review-form"
-import { Star } from "lucide-react"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { PrestigeBadge, isPrestigious } from "@/components/prestige-badge"
-
-type Review = {
-  id: string
-  rating: number
-  content: string
-  authorName: string | null
-  createdAt: string
-}
 
 type UniversityCareersResponse = {
   university: {
@@ -35,7 +23,6 @@ type UniversityCareersResponse = {
     foundedYear: number | null
     description: string | null
     logoUrl: string | null
-    reviews: Review[]
     qsRank: number | null
     qsRankLabel: string | null
   }
@@ -46,7 +33,8 @@ type UniversityCareersResponse = {
       name: string
       modality: string
       durationYears: number
-      rating: number | null
+      recommended: boolean
+      recommendedRankLabel: string | null
       areaId: string | null
       areaName: string
     }>
@@ -63,7 +51,7 @@ export default function UniversityDetailPage({
   const { isSaved, save, remove } = useSavedCareers()
   const { isComparing, canAdd, add: addToCompare, remove: removeFromCompare } = useCompareCareers()
 
-  const { data, isLoading, isError, refetch } = useApiQuery<UniversityCareersResponse>(
+  const { data, isLoading, isError } = useApiQuery<UniversityCareersResponse>(
     ["university-careers", id],
     `universities/${id}/careers`
   )
@@ -80,11 +68,6 @@ export default function UniversityDetailPage({
   const careersByArea = data?.careersByArea || {}
   const areas = Object.keys(careersByArea).sort()
   const totalCareers = Object.values(careersByArea).reduce((sum, list) => sum + list.length, 0)
-  const uniReviews = university?.reviews ?? []
-  const uniRating =
-    uniReviews.length > 0
-      ? Math.round((uniReviews.reduce((s, r) => s + r.rating, 0) / uniReviews.length) * 10) / 10
-      : null
 
   return (
     <div className="space-y-8 p-6 lg:p-8">
@@ -139,8 +122,6 @@ export default function UniversityDetailPage({
             <UniversityInfoCard
               university={university}
               careerCount={totalCareers}
-              rating={uniRating}
-              reviewCount={uniReviews.length}
             />
           )}
 
@@ -187,57 +168,6 @@ export default function UniversityDetailPage({
               </Accordion>
             </div>
           )}
-
-          {/* Reseñas de la universidad */}
-          <div className="space-y-4">
-            <h2 className="text-xl font-semibold">Reseñas</h2>
-            <ReviewForm
-              postUrl={`universities/${id}/reviews`}
-              onSuccess={refetch}
-              placeholder="Contá tu experiencia en esta universidad..."
-            />
-            {university?.reviews.length === 0 ? (
-              <EmptyState
-                icon={Star}
-                title="Todavía no hay reseñas para esta universidad"
-                description="Sé el primero en compartir tu experiencia."
-              />
-            ) : (
-              <Accordion className="rounded-lg border bg-card px-4">
-                {university?.reviews.map((review, index) => (
-                  <AccordionItem key={review.id} value={review.id}>
-                    <AccordionTrigger className="py-4 hover:no-underline">
-                      <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="font-medium text-sm">
-                            {review.authorName ?? "Anónimo"}
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            {new Date(review.createdAt).toLocaleDateString("es-AR", {
-                              day: "numeric",
-                              month: "long",
-                              year: "numeric",
-                            })}
-                          </span>
-                        </div>
-                        <div className="mt-1 flex items-center gap-3">
-                          <StarRating rating={review.rating} />
-                          <span className="text-xs text-muted-foreground">
-                            {index === 0 ? "Reseña destacada" : "Ver comentario completo"}
-                          </span>
-                        </div>
-                      </div>
-                    </AccordionTrigger>
-                    <AccordionContent className="pb-4">
-                      <p className="text-sm text-muted-foreground leading-relaxed">
-                        {review.content}
-                      </p>
-                    </AccordionContent>
-                  </AccordionItem>
-                ))}
-              </Accordion>
-            )}
-          </div>
         </>
       )}
     </div>

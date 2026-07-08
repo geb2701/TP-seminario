@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Modality } from "@/lib/generated/prisma/enums";
+import { deriveQsSubject } from "@/lib/qs-subjects";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -23,12 +24,11 @@ export async function GET(req: NextRequest) {
       university: {
         select: {
           id: true, name: true, city: true, province: true, type: true,
-          reviews: { select: { rating: true } },
           ranking: { select: { rank: true, rankLabel: true } },
+          subjectRankings: { select: { subject: true, rankLabel: true } },
         },
       },
       area: { select: { id: true, name: true } },
-      reviews: { select: { rating: true } },
     },
     orderBy: { name: "asc" },
   });
@@ -41,22 +41,18 @@ export async function GET(req: NextRequest) {
     : careers;
 
   const data = filtered.map((c) => {
-    const { reviews, university, ...rest } = c;
-    const { reviews: uReviews, ranking, ...uRest } = university;
-    const rating =
-      reviews.length > 0
-        ? Math.round((reviews.reduce((s, r) => s + r.rating, 0) / reviews.length) * 10) / 10
-        : null;
-    const universityRating =
-      uReviews.length > 0
-        ? Math.round((uReviews.reduce((s, r) => s + r.rating, 0) / uReviews.length) * 10) / 10
-        : null;
+    const { university, ...rest } = c;
+    const { ranking, subjectRankings, ...uRest } = university;
+    // "Recomendada": la universidad figura en el ranking QS de la gran área a la
+    // que pertenece esta carrera (ver lib/qs-subjects.ts).
+    const subject = deriveQsSubject(c.area.name, c.name);
+    const subjectMatch = subject ? subjectRankings.find((s) => s.subject === subject) : undefined;
     return {
       ...rest,
-      rating,
+      recommended: !!subjectMatch,
+      recommendedRankLabel: subjectMatch?.rankLabel ?? null,
       university: {
         ...uRest,
-        rating: universityRating,
         qsRank: ranking?.rank ?? null,
         qsRankLabel: ranking?.rankLabel ?? null,
       },

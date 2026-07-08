@@ -1,6 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
-import { MapPin, Globe, Landmark, Users, Star } from "lucide-react"
+import { MapPin, Globe, Landmark, Users } from "lucide-react"
 
 type UniversityInfoCardProps = {
   university: {
@@ -14,11 +14,9 @@ type UniversityInfoCardProps = {
     description?: string | null
   }
   careerCount?: number
-  rating?: number | null
-  reviewCount?: number
 }
 
-export function UniversityInfoCard({ university, careerCount, rating, reviewCount }: UniversityInfoCardProps) {
+export function UniversityInfoCard({ university, careerCount }: UniversityInfoCardProps) {
   return (
     <Card>
       <CardHeader>
@@ -46,12 +44,6 @@ export function UniversityInfoCard({ university, careerCount, rating, reviewCoun
             <div className="flex items-center gap-2 text-muted-foreground">
               <Users className="h-4 w-4 shrink-0" />
               {careerCount} {careerCount === 1 ? "carrera" : "carreras"}
-            </div>
-          )}
-          {rating !== undefined && (
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Star className="h-4 w-4 shrink-0" />
-              {rating ? `${rating} / 5.0 (${reviewCount} reseñas)` : "Sin reseñas"}
             </div>
           )}
         </div>

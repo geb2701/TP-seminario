@@ -32,6 +32,7 @@ model University {
   careers          Career[]
   reviews          UniversityReview[]
   ranking          UniversityRanking?
+  subjectRankings  UniversitySubjectRanking[]
 }
 
 // Posición de la universidad en un ranking externo (QS World University
@@ -47,6 +48,23 @@ model UniversityRanking {
   rankLabel    String     // etiqueta para mostrar: "84", "801-850", "1201-1400", "1401+"
 
   @@unique([universityId, source, year])
+}
+
+// Posición de la universidad en un ranking QS por gran área temática (QS World
+// University Rankings by Subject). Una carrera se marca "Recomendada" si su
+// universidad tiene una fila para la gran área a la que la carrera pertenece.
+// Relacional 1:N con University (una universidad puede figurar en varias áreas).
+model UniversitySubjectRanking {
+  id           String     @id @default(cuid())
+  universityId String
+  university   University @relation(fields: [universityId], references: [id])
+  subject      String     // ARTS_HUMANITIES | ENGINEERING_TECHNOLOGY | LIFE_SCIENCES_MEDICINE | NATURAL_SCIENCES | SOCIAL_SCIENCES_MANAGEMENT
+  source       String     // p. ej. "QS_SUBJECT_2026"
+  year         Int        // p. ej. 2026
+  rank         Int        // clave numérica de orden = límite inferior del rango
+  rankLabel    String     // etiqueta para mostrar: "24", "451-500", etc.
+
+  @@unique([universityId, subject, source, year])
 }
 
 model Area {

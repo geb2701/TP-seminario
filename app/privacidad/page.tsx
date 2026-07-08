@@ -14,7 +14,7 @@ export default function PrivacidadPage() {
         <h2 className="text-xl font-semibold">Quiénes somos</h2>
         <p className="text-muted-foreground leading-relaxed">
           Buscador de Carreras es una plataforma de información sobre carreras universitarias en Argentina.
-          Permite explorar, comparar y dejar reseñas sobre carreras e instituciones universitarias.
+          Permite explorar y comparar carreras e instituciones universitarias.
           Este sitio no cuenta con fines comerciales y no persigue lucro de ningún tipo.
         </p>
       </section>
@@ -31,10 +31,6 @@ export default function PrivacidadPage() {
             <li>
               <span className="font-medium text-foreground">Publicaciones en Comunidad:</span> contenido del mensaje,
               nombre (opcional), rol o profesión (opcional) y etiquetas temáticas (opcionales).
-            </li>
-            <li>
-              <span className="font-medium text-foreground">Reseñas de carreras y universidades:</span> calificación
-              numérica, comentario escrito y nombre del autor (opcional).
             </li>
           </ul>
           <p className="text-muted-foreground leading-relaxed">
@@ -91,7 +87,7 @@ export default function PrivacidadPage() {
       <section className="space-y-3">
         <h2 className="text-xl font-semibold">Cuánto tiempo conservamos los datos</h2>
         <p className="text-muted-foreground leading-relaxed">
-          Las publicaciones y reseñas enviadas voluntariamente se conservan mientras el sitio esté en
+          Las publicaciones enviadas voluntariamente se conservan mientras el sitio esté en
           funcionamiento. Los datos almacenados en su dispositivo (localStorage) permanecen hasta que
           usted los elimine desde la configuración de su navegador.
         </p>
@@ -114,7 +110,7 @@ export default function PrivacidadPage() {
           datos personales que haya proporcionado voluntariamente al sitio.
         </p>
         <p className="text-muted-foreground leading-relaxed">
-          Para solicitar la eliminación de una publicación o reseña que haya enviado, puede contactar a los
+          Para solicitar la eliminación de una publicación que haya enviado, puede contactar a los
           administradores del sitio. Procesaremos su solicitud en un plazo razonable.
         </p>
         <p className="text-muted-foreground leading-relaxed">

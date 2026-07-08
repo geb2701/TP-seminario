@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { deriveQsSubject } from "@/lib/qs-subjects";
 
 export async function GET(req: NextRequest) {
   const ids = req.nextUrl.searchParams.get("ids") ?? "";
@@ -10,9 +11,8 @@ export async function GET(req: NextRequest) {
   const careers = await prisma.career.findMany({
     where: { id: { in: idList } },
     include: {
-      university: { select: { id: true, name: true, city: true, province: true, type: true, reviews: { select: { rating: true } }, ranking: { select: { rank: true, rankLabel: true } } } },
+      university: { select: { id: true, name: true, city: true, province: true, type: true, ranking: { select: { rank: true, rankLabel: true } }, subjectRankings: { select: { subject: true, rankLabel: true } } } },
       area: { select: { name: true } },
-      reviews: { select: { rating: true } },
       studyPlans: {
         orderBy: { year: "asc" },
         select: {
@@ -29,26 +29,19 @@ export async function GET(req: NextRequest) {
   });
 
   const data = careers.map((c) => {
-    const { reviews, university, ...rest } = c;
-    const { reviews: uReviews, ranking, ...uRest } = university;
-    const rating =
-      reviews.length > 0
-        ? Math.round((reviews.reduce((s, r) => s + r.rating, 0) / reviews.length) * 10) / 10
-        : null;
-    const universityRating =
-      uReviews.length > 0
-        ? Math.round((uReviews.reduce((s, r) => s + r.rating, 0) / uReviews.length) * 10) / 10
-        : null;
+    const { university, ...rest } = c;
+    const { ranking, subjectRankings, ...uRest } = university;
+    const subject = deriveQsSubject(c.area.name, c.name);
+    const subjectMatch = subject ? subjectRankings.find((s) => s.subject === subject) : undefined;
     return {
       ...rest,
       university: {
         ...uRest,
-        rating: universityRating,
         qsRank: ranking?.rank ?? null,
         qsRankLabel: ranking?.rankLabel ?? null,
       },
-      rating,
-      reviewCount: reviews.length,
+      recommended: !!subjectMatch,
+      recommendedRankLabel: subjectMatch?.rankLabel ?? null,
     };
   });
 

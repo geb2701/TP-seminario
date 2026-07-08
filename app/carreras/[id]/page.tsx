@@ -10,15 +10,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   Clock,
   GraduationCap,
-  Star,
   BookOpen,
   Scale,
 } from "lucide-react"
-import { EmptyState } from "@/components/empty-state"
 import { ErrorState } from "@/components/error-state"
 import { UniversityInfoCard } from "@/components/university-info-card"
-import { StarRating } from "@/components/star-rating"
-import { ReviewForm } from "@/components/review-form"
+import { PrestigeBadge, isPrestigious } from "@/components/prestige-badge"
+import { RecommendedBadge, isRecommended } from "@/components/recommended-badge"
 import { useCompareCareers } from "@/hooks/use-compare-careers"
 import { useDynamicBreadcrumb } from "@/components/breadcrumb-context"
 
@@ -41,19 +39,9 @@ type StudyPlan = {
   subjects: Subject[]
 }
 
-// Review modela cada reseña asociada a la carrera. Se usa en la pestania final
-// para mostrar autor, fecha, puntaje y contenido.
-type Review = {
-  id: string
-  rating: number
-  content: string
-  authorName: string | null
-  createdAt: string
-}
-
 // CareerDetail describe exactamente la forma del JSON que devuelve
 // GET /api/careers/:id. Por eso incluye datos propios de la carrera y tambien
-// relaciones ya expandidas como universidad, area, plan y resenias.
+// relaciones ya expandidas como universidad, area y plan.
 type CareerDetail = {
   id: string
   name: string
@@ -61,8 +49,8 @@ type CareerDetail = {
   degreeTitle: string
   modality: "PRESENCIAL" | "HIBRIDO" | "ONLINE"
   description: string | null
-  rating: number | null
-  reviewCount: number
+  recommended: boolean
+  recommendedRankLabel: string | null
   university: {
     id: string
     name: string
@@ -74,12 +62,11 @@ type CareerDetail = {
     description: string | null
     logoUrl: string | null
     careerCount: number
-    rating: number | null
-    reviewCount: number
+    qsRank: number | null
+    qsRankLabel: string | null
   }
   area: { id: string; name: string }
   studyPlans: StudyPlan[]
-  reviews: Review[]
 }
 
 // Traduce el enum tecnico de la BD/API a una etiqueta legible para la UI.
@@ -175,8 +162,14 @@ export default function CarreraDetailPage({
       <section className="space-y-3">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="space-y-1">
-            <h1 className="text-3xl font-bold">{career.name}</h1>
-            <p className="text-lg text-muted-foreground">{career.university.name}</p>
+            <h1 className="text-3xl font-bold flex items-center gap-3 flex-wrap">
+              {career.name}
+              {isRecommended(career.recommended) && <RecommendedBadge rankLabel={career.recommendedRankLabel} />}
+            </h1>
+            <p className="text-lg text-muted-foreground flex items-center gap-2 flex-wrap">
+              {career.university.name}
+              {isPrestigious(career.university.qsRank) && <PrestigeBadge rankLabel={career.university.qsRankLabel} />}
+            </p>
           </div>
           <Button
               variant={isComparing(career.id) ? "default" : "outline"}
@@ -227,21 +220,6 @@ export default function CarreraDetailPage({
             </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-3">
-              <Star className="h-5 w-5 text-muted-foreground shrink-0" />
-              <div>
-                <p className="text-2xl font-bold">
-                  {career.rating !== null ? career.rating : "—"}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {career.reviewCount} {career.reviewCount === 1 ? "reseña" : "reseñas"}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
       </section>
 
       {/* Tabs para separar informacion institucional, academica y social */}
@@ -251,17 +229,12 @@ export default function CarreraDetailPage({
           {career.studyPlans.length > 0 && (
             <TabsTrigger value="plan" className="flex-1">Plan de estudios</TabsTrigger>
           )}
-          <TabsTrigger value="resenas" className="flex-1">
-            Reseñas ({career.reviewCount})
-          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="universidad" className="mt-6">
           <UniversityInfoCard
             university={career.university}
             careerCount={career.university.careerCount}
-            rating={career.university.rating}
-            reviewCount={career.university.reviewCount}
           />
         </TabsContent>
 
@@ -300,44 +273,6 @@ export default function CarreraDetailPage({
               ))}
           </TabsContent>
         )}
-
-        {/* Reseñas de usuarios. Si no hay, se muestra un estado vacio descriptivo */}
-        <TabsContent value="resenas" className="mt-6 space-y-4">
-          <ReviewForm postUrl={`careers/${career.id}/reviews`} onSuccess={refetch} />
-
-          {career.reviews.length === 0 ? (
-            <EmptyState
-              icon={Star}
-              title="Todavía no hay reseñas para esta carrera"
-              description="Sé el primero en compartir tu experiencia."
-            />
-          ) : (
-            career.reviews.map((review) => (
-              <Card key={review.id}>
-                <CardContent className="pt-6 space-y-3">
-                  <div className="flex items-center justify-between flex-wrap gap-2">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-sm">
-                        {review.authorName ?? "Anónimo"}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        {new Date(review.createdAt).toLocaleDateString("es-AR", {
-                          day: "numeric",
-                          month: "long",
-                          year: "numeric",
-                        })}
-                      </span>
-                    </div>
-                    <StarRating rating={review.rating} />
-                  </div>
-                  <p className="text-sm text-muted-foreground leading-relaxed">
-                    {review.content}
-                  </p>
-                </CardContent>
-              </Card>
-            ))
-          )}
-        </TabsContent>
       </Tabs>
     </div>
   )

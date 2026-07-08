@@ -18,7 +18,8 @@ type Career = {
   durationYears: number
   modality: "PRESENCIAL" | "HIBRIDO" | "ONLINE"
   university: { id: string; name: string; city: string; province: string }
-  rating: number | null
+  recommended: boolean
+  recommendedRankLabel: string | null
 }
 
 export function useSavedCareers() {

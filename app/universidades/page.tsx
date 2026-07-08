@@ -23,7 +23,6 @@ const PAGE_SIZE = 12
 const DIMENSION_LABELS = {
   type: "Tipo",
   name: "Nombre",
-  rating: "Rating",
   careers: "Cantidad de carreras",
 } as const
 
@@ -39,7 +38,6 @@ type University = {
   description: string | null
   logoUrl: string | null
   careerCount: number
-  rating: number | null
   qsRank: number | null
   qsRankLabel: string | null
 }
@@ -79,7 +77,7 @@ function UniversityLogo({ name, logoUrl }: { name: string; logoUrl: string | nul
   )
 }
 
-type SortDimension = "type" | "name" | "rating" | "careers"
+type SortDimension = "type" | "name" | "careers"
 type TypeFilter = "todos" | "PUBLIC" | "PRIVATE"
 type SortDir = "asc" | "desc"
 
@@ -98,7 +96,7 @@ function UniversidadesPageContent() {
 
   // El segundo selector cambia de significado según el primero, así que al
   // cambiar de dimensión reseteamos su valor para no dejar estado confuso
-  // (p.ej. "Descendente" arrastrado de "Rating" mientras se mira "Tipo").
+  // (p.ej. "Descendente" arrastrado de "Cantidad de carreras" mientras se mira "Tipo").
   function changeDimension(next: SortDimension) {
     setDimension(next)
     setTypeFilter("todos")
@@ -155,7 +153,6 @@ function UniversidadesPageContent() {
           <SelectContent>
             <SelectItem value="type">Tipo</SelectItem>
             <SelectItem value="name">Nombre</SelectItem>
-            <SelectItem value="rating">Rating</SelectItem>
             <SelectItem value="careers">Cantidad de carreras</SelectItem>
           </SelectContent>
         </Select>
@@ -243,9 +240,6 @@ function UniversidadesPageContent() {
                     <div className="flex items-center gap-2 text-muted-foreground">
                       <MapPin className="h-4 w-4 shrink-0" />
                       {uni.city}, {uni.province}
-                    </div>
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      {uni.rating !== null ? `⭐ ${uni.rating} / 5.0` : "Sin reseñas"}
                     </div>
                     <div className="flex items-center gap-2 text-muted-foreground">
                       <BookOpen className="h-4 w-4 shrink-0" />

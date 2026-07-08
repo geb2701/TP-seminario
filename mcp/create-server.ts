@@ -47,8 +47,7 @@ export function createMcpServer() {
             type: true,
             foundedYear: true,
             website: true,
-            _count: { select: { careers: true, reviews: true } },
-            reviews: { select: { rating: true } },
+            _count: { select: { careers: true } },
           },
           orderBy: { name: "asc" },
           skip: (pagina - 1) * por_pagina,
@@ -65,25 +64,17 @@ export function createMcpServer() {
             pagina,
             por_pagina,
             paginas_totales: Math.ceil(total / por_pagina),
-            universidades: universidades.map((u) => {
-              const rating =
-                u.reviews.length > 0
-                  ? parseFloat((u.reviews.reduce((s, r) => s + r.rating, 0) / u.reviews.length).toFixed(1))
-                  : null
-              return {
-                id: u.id,
-                nombre: u.name,
-                codigo: u.shortCode,
-                ciudad: u.city,
-                provincia: u.province,
-                tipo: u.type === "PUBLIC" ? "Pública" : "Privada",
-                fundada: u.foundedYear,
-                sitio_web: u.website,
-                cantidad_carreras: u._count.careers,
-                cantidad_reseñas: u._count.reviews,
-                calificacion_promedio: rating,
-              }
-            }),
+            universidades: universidades.map((u) => ({
+              id: u.id,
+              nombre: u.name,
+              codigo: u.shortCode,
+              ciudad: u.city,
+              provincia: u.province,
+              tipo: u.type === "PUBLIC" ? "Pública" : "Privada",
+              fundada: u.foundedYear,
+              sitio_web: u.website,
+              cantidad_carreras: u._count.careers,
+            })),
           }, null, 2),
         }],
       }
@@ -93,7 +84,7 @@ export function createMcpServer() {
   server.registerTool(
     "detalle_universidad",
     {
-      description: "Detalle completo de una universidad: descripción, carreras y reseñas. Usá limite_carreras si la universidad tiene muchas carreras.",
+      description: "Detalle completo de una universidad: descripción y carreras. Usá limite_carreras si la universidad tiene muchas carreras.",
       inputSchema: {
         id: z.string().describe("ID de la universidad"),
         limite_carreras: z.number().int().min(1).max(200).optional().describe("Máximo de carreras a incluir (por defecto 50)"),
@@ -108,7 +99,6 @@ export function createMcpServer() {
             orderBy: { name: "asc" },
             take: limite_carreras,
           },
-          reviews: { orderBy: { createdAt: "desc" } },
           _count: { select: { careers: true } },
         },
       })
@@ -116,11 +106,6 @@ export function createMcpServer() {
       if (!universidad) {
         return { content: [{ type: "text", text: "Universidad no encontrada." }] }
       }
-
-      const promedioReseñas =
-        universidad.reviews.length > 0
-          ? parseFloat((universidad.reviews.reduce((sum, r) => sum + r.rating, 0) / universidad.reviews.length).toFixed(1))
-          : null
 
       return {
         content: [{
@@ -134,7 +119,6 @@ export function createMcpServer() {
             fundada: universidad.foundedYear,
             descripcion: universidad.description,
             sitio_web: universidad.website,
-            calificacion_promedio: promedioReseñas,
             total_carreras: universidad._count.careers,
             carreras_mostradas: universidad.careers.length,
             carreras: universidad.careers.map((c) => ({
@@ -144,12 +128,6 @@ export function createMcpServer() {
               duracion: `${c.durationYears} años`,
               modalidad: MODALITY_LABEL[c.modality] ?? c.modality,
               titulo: c.degreeTitle,
-            })),
-            reseñas: universidad.reviews.map((r) => ({
-              autor: r.authorName ?? "Anónimo",
-              calificacion: r.rating,
-              comentario: r.content,
-              fecha: r.createdAt.toLocaleDateString("es-AR"),
             })),
           }, null, 2),
         }],
@@ -190,9 +168,8 @@ export function createMcpServer() {
         prisma.career.findMany({
           where,
           include: {
-            university: { select: { name: true, city: true, province: true, type: true, reviews: { select: { rating: true } } } },
+            university: { select: { name: true, city: true, province: true, type: true } },
             area: { select: { name: true } },
-            reviews: { select: { rating: true } },
           },
           orderBy: { name: "asc" },
           skip: (pagina - 1) * por_pagina,
@@ -209,30 +186,17 @@ export function createMcpServer() {
             pagina,
             por_pagina,
             paginas_totales: Math.ceil(total / por_pagina),
-            carreras: carreras.map((c) => {
-              const ratingCarrera =
-                c.reviews.length > 0
-                  ? parseFloat((c.reviews.reduce((s, r) => s + r.rating, 0) / c.reviews.length).toFixed(1))
-                  : null
-              const ratingUniversidad =
-                c.university.reviews.length > 0
-                  ? parseFloat((c.university.reviews.reduce((s, r) => s + r.rating, 0) / c.university.reviews.length).toFixed(1))
-                  : null
-              return {
-                id: c.id,
-                nombre: c.name,
-                universidad: c.university.name,
-                tipo_universidad: c.university.type === "PUBLIC" ? "Pública" : "Privada",
-                ubicacion: `${c.university.city}, ${c.university.province}`,
-                area: c.area.name,
-                duracion: `${c.durationYears} años`,
-                modalidad: MODALITY_LABEL[c.modality] ?? c.modality,
-                titulo: c.degreeTitle,
-                calificacion_carrera: ratingCarrera,
-                calificacion_universidad: ratingUniversidad,
-                cantidad_reseñas: c.reviews.length,
-              }
-            }),
+            carreras: carreras.map((c) => ({
+              id: c.id,
+              nombre: c.name,
+              universidad: c.university.name,
+              tipo_universidad: c.university.type === "PUBLIC" ? "Pública" : "Privada",
+              ubicacion: `${c.university.city}, ${c.university.province}`,
+              area: c.area.name,
+              duracion: `${c.durationYears} años`,
+              modalidad: MODALITY_LABEL[c.modality] ?? c.modality,
+              titulo: c.degreeTitle,
+            })),
           }, null, 2),
         }],
       }
@@ -242,7 +206,7 @@ export function createMcpServer() {
   server.registerTool(
     "detalle_carrera",
     {
-      description: "Detalle completo de una carrera: plan de estudios, reseñas e información de la universidad.",
+      description: "Detalle completo de una carrera: plan de estudios e información de la universidad.",
       inputSchema: {
         id: z.string().describe("ID de la carrera"),
       },
@@ -251,29 +215,18 @@ export function createMcpServer() {
       const carrera = await prisma.career.findUnique({
         where: { id },
         include: {
-          university: { include: { reviews: { select: { rating: true } } } },
+          university: true,
           area: true,
           studyPlans: {
             include: { subjects: { orderBy: [{ semester: "asc" }, { name: "asc" }] } },
             orderBy: { year: "asc" },
           },
-          reviews: { orderBy: { createdAt: "desc" } },
         },
       })
 
       if (!carrera) {
         return { content: [{ type: "text", text: "Carrera no encontrada." }] }
       }
-
-      const ratingCarrera =
-        carrera.reviews.length > 0
-          ? parseFloat((carrera.reviews.reduce((s, r) => s + r.rating, 0) / carrera.reviews.length).toFixed(1))
-          : null
-
-      const ratingUniversidad =
-        carrera.university.reviews.length > 0
-          ? parseFloat((carrera.university.reviews.reduce((s, r) => s + r.rating, 0) / carrera.university.reviews.length).toFixed(1))
-          : null
 
       return {
         content: [{
@@ -287,7 +240,6 @@ export function createMcpServer() {
               ciudad: carrera.university.city,
               provincia: carrera.university.province,
               tipo: carrera.university.type === "PUBLIC" ? "Pública" : "Privada",
-              calificacion_promedio: ratingUniversidad,
             },
             area: carrera.area.name,
             titulo_otorgado: carrera.degreeTitle,
@@ -295,20 +247,12 @@ export function createMcpServer() {
             modalidad: MODALITY_LABEL[carrera.modality] ?? carrera.modality,
             descripcion: carrera.description,
             estudiantes_inscritos: carrera.studentCount,
-            calificacion_promedio: ratingCarrera,
-            cantidad_reseñas: carrera.reviews.length,
             plan_de_estudios: carrera.studyPlans.map((p) => ({
               año: p.year,
               materias: p.subjects.map((s) => ({
                 nombre: s.name,
                 cuatrimestre: s.semester,
               })),
-            })),
-            reseñas: carrera.reviews.map((r) => ({
-              autor: r.authorName ?? "Anónimo",
-              calificacion: r.rating,
-              comentario: r.content,
-              fecha: r.createdAt.toLocaleDateString("es-AR"),
             })),
           }, null, 2),
         }],
@@ -328,13 +272,12 @@ export function createMcpServer() {
       const carreras = await prisma.career.findMany({
         where: { id: { in: ids } },
         include: {
-          university: { include: { reviews: { select: { rating: true } } } },
+          university: true,
           area: true,
           studyPlans: {
             include: { subjects: true },
             orderBy: { year: "asc" },
           },
-          reviews: { select: { rating: true } },
         },
       })
 
@@ -345,14 +288,6 @@ export function createMcpServer() {
       const ordenadas = ids.map((id) => carreras.find((c) => c.id === id)).filter(Boolean) as typeof carreras
 
       const comparacion = ordenadas.map((c) => {
-        const ratingCarrera =
-          c.reviews.length > 0
-            ? parseFloat((c.reviews.reduce((s, r) => s + r.rating, 0) / c.reviews.length).toFixed(1))
-            : null
-        const ratingUniversidad =
-          c.university.reviews.length > 0
-            ? parseFloat((c.university.reviews.reduce((s, r) => s + r.rating, 0) / c.university.reviews.length).toFixed(1))
-            : null
         const totalMaterias = c.studyPlans.reduce((s, p) => s + p.subjects.length, 0)
 
         return {
@@ -365,9 +300,6 @@ export function createMcpServer() {
           titulo_otorgado: c.degreeTitle,
           duracion: `${c.durationYears} años`,
           modalidad: MODALITY_LABEL[c.modality] ?? c.modality,
-          calificacion_carrera: ratingCarrera,
-          calificacion_universidad: ratingUniversidad,
-          reseñas_carrera: c.reviews.length,
           total_materias: totalMaterias,
           plan_de_estudios: c.studyPlans.map((p) => ({
             año: p.year,
@@ -411,7 +343,6 @@ export function createMcpServer() {
             city: true,
             province: true,
             type: true,
-            reviews: { select: { rating: true } },
           },
           take: limite,
           orderBy: { name: "asc" },
@@ -438,19 +369,12 @@ export function createMcpServer() {
         content: [{
           type: "text",
           text: JSON.stringify({
-            universidades: universidades.map((u) => {
-              const rating =
-                u.reviews.length > 0
-                  ? parseFloat((u.reviews.reduce((s, r) => s + r.rating, 0) / u.reviews.length).toFixed(1))
-                  : null
-              return {
-                id: u.id,
-                nombre: u.name,
-                ubicacion: `${u.city}, ${u.province}`,
-                tipo: u.type === "PUBLIC" ? "Pública" : "Privada",
-                calificacion_promedio: rating,
-              }
-            }),
+            universidades: universidades.map((u) => ({
+              id: u.id,
+              nombre: u.name,
+              ubicacion: `${u.city}, ${u.province}`,
+              tipo: u.type === "PUBLIC" ? "Pública" : "Privada",
+            })),
             carreras: carreras.map((c) => ({
               id: c.id,
               nombre: c.name,

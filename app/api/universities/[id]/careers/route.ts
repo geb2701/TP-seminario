@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { deriveQsSubject } from "@/lib/qs-subjects";
 
 export async function GET(
   req: NextRequest,
@@ -15,15 +16,11 @@ export async function GET(
         careers: {
           include: {
             area: true,
-            reviews: { select: { rating: true } },
           },
           orderBy: { name: "asc" },
         },
-        reviews: {
-          orderBy: { createdAt: "desc" },
-          select: { id: true, rating: true, content: true, authorName: true, createdAt: true },
-        },
         ranking: { select: { rank: true, rankLabel: true } },
+        subjectRankings: { select: { subject: true, rankLabel: true } },
       },
     });
 
@@ -34,6 +31,12 @@ export async function GET(
       );
     }
 
+    // Set de grandes áreas QS en las que esta universidad está rankeada, para
+    // marcar carreras "Recomendada" según la gran área de cada carrera.
+    const rankedSubjects = new Map(
+      university.subjectRankings.map((s) => [s.subject, s.rankLabel])
+    );
+
     // Agrupar carreras por área
     const careersByArea = university.careers.reduce(
       (acc, career) => {
@@ -41,23 +44,17 @@ export async function GET(
         if (!acc[areaName]) {
           acc[areaName] = [];
         }
-        
-        // Calcular rating promedio de la carrera
-        const rating =
-          career.reviews.length > 0
-            ? Math.round(
-                (career.reviews.reduce((s, r) => s + r.rating, 0) /
-                  career.reviews.length) *
-                  10
-              ) / 10
-            : null;
+
+        const subject = deriveQsSubject(career.area?.name ?? "", career.name);
+        const recommendedRankLabel = subject ? rankedSubjects.get(subject) ?? null : null;
 
         acc[areaName].push({
           id: career.id,
           name: career.name,
           modality: career.modality,
           durationYears: career.durationYears,
-          rating,
+          recommended: recommendedRankLabel != null,
+          recommendedRankLabel,
           areaId: career.areaId,
           areaName: career.area?.name || "Sin clasificar",
         });
@@ -70,7 +67,8 @@ export async function GET(
           name: string;
           modality: string;
           durationYears: number;
-          rating: number | null;
+          recommended: boolean;
+          recommendedRankLabel: string | null;
           areaId: string | null;
           areaName: string;
         }>
@@ -88,7 +86,6 @@ export async function GET(
         foundedYear: university.foundedYear,
         description: university.description,
         logoUrl: university.logoUrl,
-        reviews: university.reviews,
         qsRank: university.ranking?.rank ?? null,
         qsRankLabel: university.ranking?.rankLabel ?? null,
       },

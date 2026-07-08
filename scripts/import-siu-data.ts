@@ -69,10 +69,15 @@ async function main() {
   if (reset) {
     await prisma.subject.deleteMany({});
     await prisma.studyPlan.deleteMany({});
+    // Las tablas de reseñas ya no se usan pero siguen existiendo; se limpian por
+    // si quedaron filas legacy que bloquearían el borrado de career/university.
     await prisma.careerReview.deleteMany({});
     await prisma.universityReview.deleteMany({});
     await prisma.career.deleteMany({});
     await prisma.area.deleteMany({});
+    // Rankings QS (FK a university) antes de borrar universidades.
+    await prisma.universitySubjectRanking.deleteMany({});
+    await prisma.universityRanking.deleteMany({});
     await prisma.university.deleteMany({});
     console.log("Reset complete.");
   }

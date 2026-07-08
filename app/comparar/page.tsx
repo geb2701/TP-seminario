@@ -18,6 +18,8 @@ import { useQuery } from "@tanstack/react-query"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Cell } from "recharts"
 import { useCompareCareers } from "@/hooks/use-compare-careers"
 import { ExportPDFButton, type CareerDetail } from "@/components/exportar"
+import { PrestigeBadge, isPrestigious } from "@/components/prestige-badge"
+import { RecommendedBadge, isRecommended } from "@/components/recommended-badge"
 
 type CareerOption = {
   id: string
@@ -145,14 +147,22 @@ export default function ComparePage() {
   }, [allCareers, searchQuery, filterUniversity, filterArea, compareIds])
 
   const rows: { label: string; render: (c: CareerDetail) => React.ReactNode }[] = [
-    { label: "Universidad", render: (c) => c.university.name },
+    {
+      label: "Universidad",
+      render: (c) => (
+        <span className="inline-flex items-center gap-1.5 flex-wrap justify-center">
+          {c.university.name}
+          {isPrestigious(c.university.qsRank) && <PrestigeBadge rankLabel={c.university.qsRankLabel} />}
+        </span>
+      ),
+    },
     { label: "Localidad", render: (c) => `${c.university.city}, ${c.university.province}` },
     { label: "Tipo de institución", render: (c) => c.university.type === "PUBLIC" ? "Pública" : "Privada" },
     { label: "Área", render: (c) => c.area.name },
     { label: "Título otorgado", render: (c) => c.degreeTitle },
     { label: "Duración", render: (c) => `${c.durationYears} años` },
     { label: "Modalidad", render: (c) => <Badge variant="outline">{MODALITY_LABEL[c.modality]}</Badge> },
-    { label: "Calificación", render: (c) => c.rating !== null ? `⭐ ${c.rating} / 5.0 (${c.reviewCount} reseñas)` : "Sin reseñas" },
+    { label: "Recomendada", render: (c) => isRecommended(c.recommended) ? <RecommendedBadge rankLabel={c.recommendedRankLabel} /> : "—" },
   ]
 
   const shortName = (name: string) => name.length > 18 ? name.substring(0, 16) + "…" : name

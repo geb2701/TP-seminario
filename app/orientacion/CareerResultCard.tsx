@@ -5,6 +5,7 @@ import Link from "next/link"
 import { ArrowRight, ChevronDown } from "lucide-react"
 import { AREA_COLORS, AREA_EMOJIS } from "./constants"
 import { PrestigeBadge, isPrestigious } from "@/components/prestige-badge"
+import { RecommendedBadge, isRecommended } from "@/components/recommended-badge"
 
 // Un (carrera, universidad) del dataset. Cada fila conserva su propio Career.id,
 // así que los links a /carreras/{id} siguen siendo profundos y precisos.
@@ -13,8 +14,9 @@ export interface CareerResult {
   name: string
   durationYears: number
   modality: "PRESENCIAL" | "HIBRIDO" | "ONLINE"
-  rating: number | null
-  university: { id: string; name: string; city: string; province: string; type: "PUBLIC" | "PRIVATE"; rating: number | null; qsRank: number | null; qsRankLabel: string | null }
+  recommended: boolean
+  recommendedRankLabel: string | null
+  university: { id: string; name: string; city: string; province: string; type: "PUBLIC" | "PRIVATE"; qsRank: number | null; qsRankLabel: string | null }
   area: { id: string; name: string }
 }
 
@@ -69,7 +71,6 @@ export interface SortRow {
   province: string
   type: "PUBLIC" | "PRIVATE"
   modality: "PRESENCIAL" | "HIBRIDO" | "ONLINE"
-  rating: number | null
   qsRank: number | null // puesto en el ranking QS; null = no está en el ranking
   affinity?: number // presente al ordenar carreras; constante dentro de un card
 }
@@ -96,8 +97,7 @@ export function rowSortKeys(row: SortRow, ctx: SortContext): number[] {
   }
   if (ctx.typePref && ctx.typePref !== "ANY") keys.push(row.type === ctx.typePref ? 0 : 1)
   if (ctx.modalityPref && ctx.modalityPref !== "ANY") keys.push(row.modality === ctx.modalityPref ? 0 : 1)
-  // Desempate general por rating, excepto en PRESTIGE donde es alfabético (name fallback).
-  if (ctx.priority !== "PRESTIGE") keys.push(row.rating != null ? 5 - row.rating : 5)
+  // Desempate general alfabético por nombre (lo resuelve el localeCompare en el call site).
   return keys
 }
 
@@ -117,7 +117,7 @@ export function orderUniversities(
 ): CareerResult[] {
   const ctx = deriveSortContext(phase3Answers)
   const keyOf = (c: CareerResult) =>
-    rowSortKeys({ province: c.university.province, type: c.university.type, modality: c.modality, rating: c.university.rating, qsRank: c.university.qsRank }, ctx)
+    rowSortKeys({ province: c.university.province, type: c.university.type, modality: c.modality, qsRank: c.university.qsRank }, ctx)
   return [...universities].sort((a, b) => {
     const cmp = compareSortKeys(keyOf(a), keyOf(b))
     return cmp !== 0 ? cmp : a.university.name.localeCompare(b.university.name, "es")
@@ -163,16 +163,16 @@ function UniversityRow({ option }: { option: CareerResult }) {
       className="group flex items-center gap-3 rounded-lg border bg-card px-3 py-2 hover:border-primary/40 hover:bg-muted/40 transition-colors"
     >
       <div className="flex-1 min-w-0 space-y-0.5">
-        <div className="flex items-start gap-2 min-w-0">
+        <div className="flex items-start gap-2 min-w-0 flex-wrap">
           <span className="text-sm font-medium break-words min-w-0 group-hover:text-primary transition-colors">{u.name}</span>
           {isPrestigious(u.qsRank) && <PrestigeBadge rankLabel={u.qsRankLabel} />}
+          {isRecommended(option.recommended) && <RecommendedBadge rankLabel={option.recommendedRankLabel} />}
           <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${u.type === "PUBLIC" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" : "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400"}`}>
             {u.type === "PUBLIC" ? "Pública" : "Privada"}
           </span>
         </div>
         <p className="text-xs text-muted-foreground break-words">
           {u.city}, {u.province} · {MODALITY_LABEL[option.modality]}
-          {u.rating != null && ` · ⭐ ${u.rating}`}
         </p>
       </div>
       <ArrowRight className="size-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />

@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { deriveQsSubject } from "@/lib/qs-subjects";
 
 // Endpoint: GET /api/careers/:id
 // Devuelve el detalle completo de una carrera para la vista individual.
-// Incluye relaciones (universidad, area, plan y reseñas) y agrega métricas derivadas.
+// Incluye relaciones (universidad, area, plan) y agrega métricas derivadas.
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -31,8 +32,8 @@ export async function GET(
           foundedYear: true,
           description: true,
           logoUrl: true,
-          reviews: { select: { rating: true } },
           ranking: { select: { rank: true, rankLabel: true } },
+          subjectRankings: { select: { subject: true, rankLabel: true } },
           _count: { select: { careers: true } },
         },
       },
@@ -50,18 +51,6 @@ export async function GET(
           },
         },
       },
-
-      // Reseñas de la carrera, más nuevas primero
-      reviews: {
-        orderBy: { createdAt: "desc" },
-        select: {
-          id: true,
-          rating: true,
-          content: true,
-          authorName: true,
-          createdAt: true,
-        },
-      },
     },
   });
 
@@ -69,33 +58,19 @@ export async function GET(
     return NextResponse.json({ error: "Carrera no encontrada" }, { status: 404 });
   }
 
-  const { university, reviews: careerReviews, ...careerRest } = career;
-  const { reviews: uniReviews, ranking, _count, ...universityRest } = university;
+  const { university, ...careerRest } = career;
+  const { ranking, subjectRankings, _count, ...universityRest } = university;
 
-  const rating =
-    careerReviews.length > 0
-      ? Math.round(
-          (careerReviews.reduce((sum, r) => sum + r.rating, 0) / careerReviews.length) * 10
-        ) / 10
-      : null;
-
-  const universityRating =
-    uniReviews.length > 0
-      ? Math.round(
-          (uniReviews.reduce((s, r) => s + r.rating, 0) / uniReviews.length) * 10
-        ) / 10
-      : null;
+  const subject = deriveQsSubject(career.area.name, career.name);
+  const subjectMatch = subject ? subjectRankings.find((s) => s.subject === subject) : undefined;
 
   return NextResponse.json({
     ...careerRest,
-    rating,
-    reviewCount: careerReviews.length,
-    reviews: careerReviews,
+    recommended: !!subjectMatch,
+    recommendedRankLabel: subjectMatch?.rankLabel ?? null,
     university: {
       ...universityRest,
       careerCount: _count.careers,
-      rating: universityRating,
-      reviewCount: uniReviews.length,
       qsRank: ranking?.rank ?? null,
       qsRankLabel: ranking?.rankLabel ?? null,
     },

@@ -4,10 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Clock, GraduationCap, Star, BookOpen } from "lucide-react"
-import { EmptyState } from "@/components/empty-state"
+import { Clock, GraduationCap, BookOpen } from "lucide-react"
 import { UniversityInfoCard } from "@/components/university-info-card"
-import { StarRating } from "@/components/star-rating"
+import { PrestigeBadge, isPrestigious } from "@/components/prestige-badge"
+import { RecommendedBadge, isRecommended } from "@/components/recommended-badge"
 import { AREA_EMOJIS, getCareerAffinity } from "./constants"
 
 type Subject = { id: string; name: string; year: number; semester: number | null }
@@ -19,8 +19,8 @@ export type CareerDetailFull = {
   degreeTitle: string
   modality: "PRESENCIAL" | "HIBRIDO" | "ONLINE"
   description: string | null
-  rating: number | null
-  reviewCount: number
+  recommended: boolean
+  recommendedRankLabel: string | null
   university: {
     id: string
     name: string
@@ -32,12 +32,11 @@ export type CareerDetailFull = {
     description: string | null
     logoUrl: string | null
     careerCount: number
-    rating: number | null
-    reviewCount: number
+    qsRank: number | null
+    qsRankLabel: string | null
   }
   area: { id: string; name: string }
   studyPlans: { id: string; name: string; year: number; subjects: Subject[] }[]
-  reviews: { id: string; rating: number; content: string; authorName: string | null; createdAt: string }[]
 }
 
 const MODALITY_LABEL: Record<string, string> = {
@@ -93,8 +92,14 @@ export function CareerDetailPanel({
       <section className="space-y-2">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="space-y-1 min-w-0">
-            <h2 className="text-2xl font-bold leading-tight">{data.name}</h2>
-            <p className="text-muted-foreground">{data.university.name}</p>
+            <h2 className="text-2xl font-bold leading-tight flex items-center gap-2 flex-wrap">
+              {data.name}
+              {isRecommended(data.recommended) && <RecommendedBadge rankLabel={data.recommendedRankLabel} />}
+            </h2>
+            <p className="text-muted-foreground flex items-center gap-2 flex-wrap">
+              {data.university.name}
+              {isPrestigious(data.university.qsRank) && <PrestigeBadge rankLabel={data.university.qsRankLabel} />}
+            </p>
           </div>
           {affinity > 0 && (
             <div className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 border border-primary/20 px-3 py-1 text-sm font-semibold text-primary shrink-0">
@@ -134,17 +139,6 @@ export function CareerDetailPanel({
             </div>
           </div>
         </CardContent></Card>
-        <Card><CardContent className="pt-5">
-          <div className="flex items-center gap-3">
-            <Star className="h-5 w-5 text-muted-foreground shrink-0" />
-            <div>
-              <p className="text-2xl font-bold">{data.rating !== null ? data.rating : "—"}</p>
-              <p className="text-xs text-muted-foreground">
-                {data.reviewCount} {data.reviewCount === 1 ? "reseña" : "reseñas"}
-              </p>
-            </div>
-          </div>
-        </CardContent></Card>
       </section>
 
       {/* Tabs */}
@@ -154,17 +148,12 @@ export function CareerDetailPanel({
           {data.studyPlans.length > 0 && (
             <TabsTrigger value="plan" className="flex-1">Plan de estudios</TabsTrigger>
           )}
-          <TabsTrigger value="resenas" className="flex-1">
-            Reseñas ({data.reviewCount})
-          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="universidad" className="mt-4">
           <UniversityInfoCard
             university={data.university}
             careerCount={data.university.careerCount}
-            rating={data.university.rating}
-            reviewCount={data.university.reviewCount}
           />
         </TabsContent>
 
@@ -200,31 +189,6 @@ export function CareerDetailPanel({
               ))}
           </TabsContent>
         )}
-
-        <TabsContent value="resenas" className="mt-4 space-y-4">
-          {data.reviews.length === 0 ? (
-            <EmptyState icon={Star} title="Todavía no hay reseñas para esta carrera" />
-          ) : (
-            data.reviews.map((review) => (
-              <Card key={review.id}>
-                <CardContent className="pt-6 space-y-3">
-                  <div className="flex items-center justify-between flex-wrap gap-2">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-sm">{review.authorName ?? "Anónimo"}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {new Date(review.createdAt).toLocaleDateString("es-AR", {
-                          day: "numeric", month: "long", year: "numeric",
-                        })}
-                      </span>
-                    </div>
-                    <StarRating rating={review.rating} />
-                  </div>
-                  <p className="text-sm text-muted-foreground leading-relaxed">{review.content}</p>
-                </CardContent>
-              </Card>
-            ))
-          )}
-        </TabsContent>
       </Tabs>
     </div>
   )
