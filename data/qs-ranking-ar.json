@@ -1,0 +1,23 @@
+{
+  "source": "QS_WORLD_2026",
+  "year": 2026,
+  "note": "Universidades argentinas presentes en el QS World University Rankings 2026 (topuniversities.com, ?countries=ar). 'rank' es el límite inferior del rango para ordenar; 'rankLabel' es la etiqueta a mostrar. 'name' coincide exactamente con el nombre en la DB (ver data/siu-careers.json); 'aka' documenta el nombre alternativo del QS cuando difiere.",
+  "universities": [
+    { "name": "Universidad de Buenos Aires", "rank": 84, "rankLabel": "84" },
+    { "name": "Universidad Nacional de La Plata", "rank": 474, "rankLabel": "474" },
+    { "name": "Universidad Austral", "rank": 530, "rankLabel": "530" },
+    { "name": "Pontificia Universidad Católica Argentina Santa María de los Buenos Aires", "rank": 530, "rankLabel": "530", "aka": "Universidad Católica Argentina" },
+    { "name": "Universidad de Palermo", "rank": 781, "rankLabel": "781-790" },
+    { "name": "Universidad Nacional de Córdoba", "rank": 801, "rankLabel": "801-850" },
+    { "name": "Universidad de San Andrés", "rank": 1001, "rankLabel": "1001-1200" },
+    { "name": "Universidad Argentina de la Empresa", "rank": 1001, "rankLabel": "1001-1200" },
+    { "name": "Universidad Nacional de Rosario", "rank": 1001, "rankLabel": "1001-1200" },
+    { "name": "Universidad Torcuato Di Tella", "rank": 1001, "rankLabel": "1001-1200" },
+    { "name": "Universidad de Belgrano", "rank": 1001, "rankLabel": "1001-1200" },
+    { "name": "Instituto Tecnológico de Buenos Aires", "rank": 1201, "rankLabel": "1201-1400" },
+    { "name": "Universidad Nacional de Cuyo", "rank": 1201, "rankLabel": "1201-1400" },
+    { "name": "Universidad Nacional del Litoral", "rank": 1401, "rankLabel": "1401+" },
+    { "name": "Universidad Nacional del Centro de la Provincia de Buenos Aires", "rank": 1401, "rankLabel": "1401+" },
+    { "name": "Universidad Tecnológica Nacional", "rank": 1401, "rankLabel": "1401+" }
+  ]
+}

@@ -37,10 +37,16 @@ next-env.d.ts
 prisma/dev.db
 prisma/dev.db-journal
 
-# scraped data — siu-careers.json se commitea para el setup local (npm run db:bootstrap).
-# El raw y el report se regeneran con npm run scrape:siu / scrape:siu:transform.
+# scraped data — los archivos que consume `npm run db:bootstrap` se commitean
+# para que cualquiera pueda levantar la DB local:
+#   - siu-careers.json         (universidades + carreras)
+#   - qs-ranking-ar.json       (ranking mundial QS → chip "Prestigiosa")
+#   - qs-subject-ranking-ar.json (ranking por disciplina QS → chip "Recomendada")
+# El raw/report/progress se regeneran con npm run scrape:siu / scrape:siu:transform.
 /data/*
 !/data/siu-careers.json
+!/data/qs-ranking-ar.json
+!/data/qs-subject-ranking-ar.json
 scripts/.recon-tmp/
 
 # claude

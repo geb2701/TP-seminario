@@ -1,0 +1,23 @@
+{
+  "source": "QS_SUBJECT_2026",
+  "year": 2026,
+  "note": "Universidades argentinas por gran área temática del QS World University Rankings by Subject 2026 (topuniversities.com/university-subject-rankings/<area>?countries=ar). 'name' coincide exacto con el nombre en la DB (ver data/siu-careers.json); 'aka' documenta el nombre alternativo del QS. INCOMPLETO: sólo cargados los puntos confirmados por prensa (UBA, UNLP). Completar cada área desde el sitio. El seed falla ruidosamente ante nombres sin match, no ante áreas faltantes.",
+  "subjects": {
+    "ARTS_HUMANITIES": [
+      { "name": "Universidad de Buenos Aires", "rank": 24, "rankLabel": "24" }
+    ],
+    "ENGINEERING_TECHNOLOGY": [
+      { "name": "Universidad de Buenos Aires", "rank": 143, "rankLabel": "143" },
+      { "name": "Universidad Nacional de La Plata", "rank": 324, "rankLabel": "324" }
+    ],
+    "LIFE_SCIENCES_MEDICINE": [
+      { "name": "Universidad de Buenos Aires", "rank": 135, "rankLabel": "135" },
+      { "name": "Universidad Nacional de La Plata", "rank": 451, "rankLabel": "451-500" }
+    ],
+    "NATURAL_SCIENCES": [
+      { "name": "Universidad de Buenos Aires", "rank": 145, "rankLabel": "145" },
+      { "name": "Universidad Nacional de La Plata", "rank": 313, "rankLabel": "313" }
+    ],
+    "SOCIAL_SCIENCES_MANAGEMENT": []
+  }
+}
