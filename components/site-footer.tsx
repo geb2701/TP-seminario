@@ -36,7 +36,7 @@ export function SiteFooter() {
         </div>
 
         <div className="border-t pt-8 flex items-center justify-between text-sm text-muted-foreground">
-          <p>&copy; 2026 Carreras Finder. Todos los derechos reservados.</p>
+          <p>&copy; 2026 UniFlow. Todos los derechos reservados.</p>
         </div>
       </div>
     </footer>
