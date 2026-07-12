@@ -1,5 +1,5 @@
 export const metadata = {
-  title: 'Política de Privacidad — Buscador de Carreras',
+  title: 'Política de Privacidad — UniFlow',
 }
 
 export default function PrivacidadPage() {
@@ -13,7 +13,7 @@ export default function PrivacidadPage() {
       <section className="space-y-3">
         <h2 className="text-xl font-semibold">Quiénes somos</h2>
         <p className="text-muted-foreground leading-relaxed">
-          Buscador de Carreras es una plataforma de información sobre carreras universitarias en Argentina.
+          UniFlow es una plataforma de información sobre carreras universitarias en Argentina.
           Permite explorar y comparar carreras e instituciones universitarias.
           Este sitio no cuenta con fines comerciales y no persigue lucro de ningún tipo.
         </p>

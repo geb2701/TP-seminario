@@ -1,5 +1,5 @@
 export const metadata = {
-  title: 'Política de Cookies — Buscador de Carreras',
+  title: 'Política de Cookies — UniFlow',
 }
 
 export default function CookiesPage() {
