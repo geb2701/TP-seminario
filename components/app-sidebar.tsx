@@ -27,6 +27,12 @@ import { Sun, Moon } from "lucide-react"
 import { useTheme } from "next-themes"
 import { useDebugState } from "@/components/providers"
 import { GlobalSearch } from "@/components/global-search"
+import { Poppins } from "next/font/google"
+
+const brandFont = Poppins({
+  subsets: ["latin"],
+  weight: ["600", "700"],
+})
 
 const data = {
   navMain: [
@@ -103,7 +109,7 @@ export function AppSidebar() {
                 />
               </div>
               <div className="flex flex-col gap-0.5 leading-none">
-                <span className="font-semibold text-lg">UniFlow</span>
+                <span className={`${brandFont.className} font-semibold text-lg tracking-tight`}>UniFlow</span>
                 <span className="text-xs text-muted-foreground">Plataforma académica</span>
               </div>
             </SidebarMenuButton>
