@@ -103,13 +103,16 @@ export function AppSidebar() {
             <SidebarMenuButton size="lg" render={<Link href="/" className="flex items-center gap-2" />}>
               <div className="flex aspect-square size-12 items-center justify-center rounded-lg overflow-hidden bg-muted">
                 <img
-                  src="/uniflow-logo.png"
+                  src="/logo_v3.png"
                   alt="Logo UniFlow"
                   className="h-full w-full object-contain"
                 />
               </div>
               <div className="flex flex-col gap-0.5 leading-none">
-                <span className={`${brandFont.className} font-semibold text-lg tracking-tight`}>UniFlow</span>
+                <span className={`${brandFont.className} font-semibold text-lg tracking-tight`}>
+                  <span>Uni</span>
+                  <span className="text-blue-600">Flow</span>
+                </span>
                 <span className="text-xs text-muted-foreground">Plataforma académica</span>
               </div>
             </SidebarMenuButton>
