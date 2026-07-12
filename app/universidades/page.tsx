@@ -57,14 +57,14 @@ function UniversityLogo({ name, logoUrl }: { name: string; logoUrl: string | nul
 
   if (!logoUrl || imageError) {
     return (
-      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-muted text-sm font-semibold text-muted-foreground">
+      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-white text-sm font-semibold text-muted-foreground">
         {initials}
       </div>
     )
   }
 
   return (
-    <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-muted">
+    <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-white">
       <Image
         src={logoUrl}
         alt={`Logo de ${name}`}
