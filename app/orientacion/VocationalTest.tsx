@@ -25,6 +25,7 @@ import {
   Trophy,
   Save,
   CheckCircle,
+  ShieldCheck,
 } from "lucide-react"
 import { useVocationalProfile } from "@/hooks/use-vocational-profile"
 import { useCompareCareers } from "@/hooks/use-compare-careers"
@@ -1473,6 +1474,53 @@ function Phase3Screen({
 
 // ─── Guardar ──────────────────────────────────────────────────────────────────
 
+function ConsentModal({
+  open,
+  onAccept,
+  onDismiss,
+}: {
+  open: boolean
+  onAccept: () => void
+  onDismiss: () => void
+}) {
+  if (!open) return null
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onDismiss} />
+      {/* Panel */}
+      <div className="relative z-10 w-full max-w-md rounded-2xl border bg-background p-6 shadow-xl space-y-5">
+        <div className="flex items-center gap-3">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10">
+            <ShieldCheck className="size-5 text-primary" />
+          </span>
+          <h2 className="text-lg font-semibold leading-snug">Antes de ver tus resultados</h2>
+        </div>
+
+        <p className="text-sm text-muted-foreground leading-relaxed">
+          Para mostrarte los resultados guardamos tus respuestas de forma anónima y las usamos para
+          mejorar nuestras recomendaciones. Al continuar, aceptás que UniFlow recolecte y procese
+          estos datos según nuestra{" "}
+          <Link href="/privacidad" target="_blank" className="font-medium text-primary underline underline-offset-2 hover:opacity-80">
+            Política de privacidad
+          </Link>
+          .
+        </p>
+
+        <div className="flex flex-col-reverse gap-2 sm:flex-row">
+          <Button variant="outline" className="flex-1" onClick={onDismiss}>
+            Cancelar
+          </Button>
+          <Button className="flex-1 gap-2" onClick={onAccept}>
+            <CheckCircle className="size-4" />
+            Acepto y ver resultados
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function SaveScreen({
   personName,
   saving,
@@ -1486,38 +1534,56 @@ function SaveScreen({
   onConfirm: () => void
   onBack: () => void
 }) {
-  return (
-    <div className="flex flex-col items-center justify-center min-h-[80vh] px-4 max-w-md mx-auto gap-8 text-center">
-      <div className="space-y-3">
-        <div className="text-5xl">💾</div>
-        <h2 className="text-2xl font-bold">¡Test completado!</h2>
-        <p className="text-muted-foreground leading-relaxed">
-          Podés guardar tus resultados ingresando tu nombre, o continuar directamente para ver tu perfil.
-        </p>
-      </div>
+  const [showConsent, setShowConsent] = useState(false)
 
-      <div className="w-full space-y-3">
-        <div className="space-y-1.5 text-left">
-          <Label htmlFor="name">Tu nombre (opcional)</Label>
-          <Input
-            id="name"
-            placeholder="Ej: Lucía García"
-            value={personName}
-            onChange={(e) => onNameChange(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && onConfirm()}
-          />
+  function handleConfirmClick() {
+    setShowConsent(true)
+  }
+
+  function handleAccept() {
+    setShowConsent(false)
+    onConfirm()
+  }
+
+  function handleDismiss() {
+    setShowConsent(false)
+  }
+
+  return (
+    <>
+      <ConsentModal open={showConsent} onAccept={handleAccept} onDismiss={handleDismiss} />
+      <div className="flex flex-col items-center justify-center min-h-[80vh] px-4 max-w-md mx-auto gap-8 text-center">
+        <div className="space-y-3">
+          <div className="text-5xl">💾</div>
+          <h2 className="text-2xl font-bold">¡Test completado!</h2>
+          <p className="text-muted-foreground leading-relaxed">
+            Podés guardar tus resultados ingresando tu nombre, o continuar directamente para ver tu perfil.
+          </p>
         </div>
-        <Button className="w-full gap-2" onClick={onConfirm} disabled={saving}>
-          <Save className="size-4" />
-          {saving ? "Guardando..." : "Guardar y ver resultados"}
+
+        <div className="w-full space-y-3">
+          <div className="space-y-1.5 text-left">
+            <Label htmlFor="name">Tu nombre (opcional)</Label>
+            <Input
+              id="name"
+              placeholder="Ej: Lucía García"
+              value={personName}
+              onChange={(e) => onNameChange(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleConfirmClick()}
+            />
+          </div>
+          <Button className="w-full gap-2" onClick={handleConfirmClick} disabled={saving}>
+            <Save className="size-4" />
+            {saving ? "Guardando..." : "Guardar y ver resultados"}
+          </Button>
+        </div>
+
+        <Button variant="ghost" size="sm" onClick={onBack} className="gap-1 text-muted-foreground">
+          <ArrowLeft className="size-3" />
+          Volver
         </Button>
       </div>
-
-      <Button variant="ghost" size="sm" onClick={onBack} className="gap-1 text-muted-foreground">
-        <ArrowLeft className="size-3" />
-        Volver
-      </Button>
-    </div>
+    </>
   )
 }
 

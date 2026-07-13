@@ -2,7 +2,8 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
+import { buttonVariants } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 
 export const metadata: Metadata = {
   title: "Blog | UniFlow",
@@ -54,9 +55,9 @@ export default function BlogPage() {
               <CardDescription>{post.description}</CardDescription>
             </CardHeader>
             <CardContent>
-              <Button asChild variant="outline" className="w-full">
-                <Link href={post.href}>Leer más</Link>
-              </Button>
+              <Link href={post.href} className={cn(buttonVariants({ variant: "outline" }), "w-full")}>
+                Leer más
+              </Link>
             </CardContent>
           </Card>
         ))}
