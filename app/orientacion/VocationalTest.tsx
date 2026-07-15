@@ -531,6 +531,29 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 const AUTOPILOT_ANSWER_MS = 280 // pausa entre respuestas dentro de una página
 const AUTOPILOT_PAGE_MS = 450 // pausa al cambiar de página
 
+// Consentimiento de las demos: se persiste en localStorage para que sobreviva a
+// reinicios/recargas (una vez aceptado, las demos no vuelven a preguntar). Los
+// tests manuales usan su propio modal aparte y no dependen de esta bandera.
+const DEMO_CONSENT_KEY = "uniflow_demo_consent"
+
+function hasDemoConsent(): boolean {
+  if (typeof window === "undefined") return false
+  try {
+    return window.localStorage.getItem(DEMO_CONSENT_KEY) === "1"
+  } catch {
+    return false
+  }
+}
+
+function rememberDemoConsent() {
+  if (typeof window === "undefined") return
+  try {
+    window.localStorage.setItem(DEMO_CONSENT_KEY, "1")
+  } catch {
+    // storage deshabilitado: la demo volverá a preguntar, sin romperse
+  }
+}
+
 type PresetProfileId = "VALENTINA" | "TOMAS"
 
 const PRESET_PROFILES: Record<
@@ -673,6 +696,11 @@ export function VocationalTest({
   // cancelar la secuencia (al cerrar/reiniciar) sin tocar estado tras desmontar.
   const [autopilot, setAutopilot] = useState(false)
   const autopilotCancelRef = useRef(false)
+  // Bandera transitoria mientras una demo terminada espera la decisión de
+  // consentimiento en la pantalla de guardado. El "ya consintió" persiste en
+  // localStorage (ver hasDemoConsent/rememberDemoConsent), no en estado, para
+  // que sobreviva a reinicios y remontajes del componente.
+  const [demoAwaitingConsent, setDemoAwaitingConsent] = useState(false)
 
   useEffect(() => () => { autopilotCancelRef.current = true }, [])
 
@@ -805,6 +833,7 @@ export function VocationalTest({
   function reset() {
     autopilotCancelRef.current = true
     setAutopilot(false)
+    setDemoAwaitingConsent(false)
     setStep(0)
     setPhase1Answers({})
     setPhase2Answers({})
@@ -994,7 +1023,14 @@ export function VocationalTest({
 
     if (cancelled()) return
     setAutopilot(false)
-    setStep(RESULT_STEP)
+    // Ya venimos parados en SAVE_STEP (línea de arriba). Si ya se aceptó el
+    // consentimiento en una demo previa, vamos directo a resultados; si no,
+    // dejamos la pantalla de guardado con el modal de consentimiento abierto.
+    if (hasDemoConsent()) {
+      setStep(RESULT_STEP)
+    } else {
+      setDemoAwaitingConsent(true)
+    }
   }
 
   // Auto-carga resultados guardados en cuanto están disponibles los datos de áreas
@@ -1179,13 +1215,28 @@ export function VocationalTest({
   // ── Guardar ──
   if (step === SAVE_STEP) {
     return (
-      <SaveScreen
-        personName={personName}
-        saving={saving || autopilot}
-        onNameChange={setPersonName}
-        onConfirm={handleSaveAndShowResults}
-        onBack={() => setStep(PHASE3_LAST)}
-      />
+      <>
+        <SaveScreen
+          personName={personName}
+          saving={saving || autopilot}
+          onNameChange={setPersonName}
+          onConfirm={handleSaveAndShowResults}
+          onBack={() => setStep(PHASE3_LAST)}
+        />
+        {/* Consentimiento de las demos: se abre al terminar el autopilot. Aceptar
+            recuerda la decisión para las siguientes demos y muestra resultados;
+            descartar deja al usuario en la pantalla de guardado (puede guardar a
+            mano, que usa el modal propio de SaveScreen). */}
+        <ConsentModal
+          open={demoAwaitingConsent}
+          onAccept={() => {
+            rememberDemoConsent()
+            setDemoAwaitingConsent(false)
+            setStep(RESULT_STEP)
+          }}
+          onDismiss={() => setDemoAwaitingConsent(false)}
+        />
+      </>
     )
   }
 
