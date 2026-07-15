@@ -1973,8 +1973,7 @@ function ResultsScreen({
                   strokeWidth={2}
                 />
                 <Tooltip
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  formatter={(value: any) => [`${value}%`, "Afinidad"]}
+                  formatter={(value) => [`${value}%`, "Afinidad"]}
                   contentStyle={{
                     background: "hsl(var(--card))",
                     border: "1px solid hsl(var(--border))",

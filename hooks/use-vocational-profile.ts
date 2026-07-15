@@ -35,6 +35,21 @@ export function useVocationalProfile() {
       // storage full
     }
     setProfile(full)
+
+    // Guarda el resultado también en la base para poder consultarlo después
+    // (estadísticas, MCP). Si falla, no bloqueamos al usuario: el perfil ya
+    // quedó en localStorage.
+    fetch("/api/vocational-results", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        personName: data.personName,
+        scores: data.scores,
+        topArea: data.topArea,
+      }),
+    }).catch(() => {
+      // sin conexión / error del servidor: se pierde el registro remoto, no la UX
+    })
   }, [])
 
   const clearProfile = useCallback(() => {

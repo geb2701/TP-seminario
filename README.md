@@ -9,6 +9,8 @@ Plataforma para buscar, comparar y reseñar carreras universitarias en Argentina
 ## Requisitos previos
 
 - Node.js 18+
+- [pnpm](https://pnpm.io) (el proyecto fija la versión en `packageManager`; con
+  Corepack habilitado — `corepack enable` — se usa automáticamente la correcta)
 
 > Para correr **localmente** no hace falta cuenta de Turso ni `.env`: la base es un
 > SQLite local (`prisma/dev.db`) y el dataset ya viene incluido en el repo
@@ -24,21 +26,22 @@ git clone https://github.com/geb2701/TP-seminario.git
 cd TP-seminario
 
 # 2. Instalar dependencias (genera el cliente de Prisma automáticamente)
-npm install
+pnpm install
 
 # 3. Crear el SQLite local + cargar TODOS los datos (universidades, carreras,
 #    ubicaciones, áreas y reseñas curadas) en un solo comando
-npm run db:bootstrap
+pnpm run db:bootstrap
 
 # 4. Levantar la app en modo local
-npm run dev:local
+pnpm run dev:local
 ```
 
 La app queda en [http://localhost:3000](http://localhost:3000) con el dataset completo.
 
-`npm run db:bootstrap` corre, en orden: `prisma db push` (crea el esquema en
-`prisma/dev.db`) → `db:seed` (importa `data/siu-careers.json`) → `db:seed-reviews`
-(carga las reseñas/calificaciones curadas). Es idempotente: se puede re-correr.
+`pnpm run db:bootstrap` corre, en orden: `prisma db push` (crea el esquema en
+`prisma/dev.db`) → `db:seed` (importa `data/siu-careers.json`) → `db:seed-rankings`
+→ `db:seed-subject-rankings` (cargan los rankings QS usados para los chips
+"Prestigiosa"/"Recomendada"). Es idempotente: se puede re-correr.
 
 ---
 
@@ -46,16 +49,17 @@ La app queda en [http://localhost:3000](http://localhost:3000) con el dataset co
 
 | Comando | Descripción |
 |---------|-------------|
-| `npm run dev:local` | Servidor de desarrollo contra el SQLite local |
-| `npm run db:bootstrap` | Crea el esquema y carga todo el dataset + reseñas (setup local de un comando) |
-| `npm run db:seed` | (Re)importa solo el dataset de carreras/universidades |
-| `npm run db:seed-reviews` | (Re)carga solo las reseñas curadas |
-| `npm run build` | Compila para producción |
-| `npm run mcp` | Inicia el servidor MCP local (stdio) |
-| `npm run scrape:siu` / `:transform` | Re-genera `data/siu-careers.json` desde el SIU (no necesario: ya está commiteado) |
-| `npx prisma db push` | Sincroniza el schema con la DB local |
-| `npx prisma generate` | Regenera el cliente de Prisma |
-| `npx prisma studio` | Abre el explorador visual de la DB |
+| `pnpm run dev:local` | Servidor de desarrollo contra el SQLite local |
+| `pnpm run db:bootstrap` | Crea el esquema y carga todo el dataset + rankings (setup local de un comando) |
+| `pnpm run db:seed` | (Re)importa solo el dataset de carreras/universidades |
+| `pnpm run db:seed-rankings` | (Re)carga solo el ranking QS mundial |
+| `pnpm run db:seed-subject-rankings` | (Re)carga solo el ranking QS por disciplina |
+| `pnpm run build` | Compila para producción |
+| `pnpm run mcp` | Inicia el servidor MCP local (stdio) |
+| `pnpm run scrape:siu` / `:transform` | Re-genera `data/siu-careers.json` desde el SIU (no necesario: ya está commiteado) |
+| `pnpm exec prisma db push` | Sincroniza el schema con la DB local |
+| `pnpm exec prisma generate` | Regenera el cliente de Prisma |
+| `pnpm exec prisma studio` | Abre el explorador visual de la DB |
 
 ---
 

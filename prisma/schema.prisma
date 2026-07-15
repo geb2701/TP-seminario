@@ -117,16 +117,6 @@ model CareerReview {
   createdAt  DateTime @default(now())
 }
 
-model Post {
-  id         String   @id @default(cuid())
-  content    String
-  authorName String
-  authorRole String?
-  tags       String   @default("[]")
-  likes      Int      @default(0)
-  createdAt  DateTime @default(now())
-}
-
 model UniversityReview {
   id           String     @id @default(cuid())
   rating       Int

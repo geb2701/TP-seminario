@@ -53,5 +53,7 @@ scripts/.recon-tmp/
 .claude/
 
 /lib/generated/prisma
-pnpm-lock.yaml
-pnpm-workspace.yaml
+
+# el proyecto usa pnpm (ver "packageManager" en package.json); no commitear el
+# lockfile de npm para evitar que los dos queden desincronizados
+/package-lock.json

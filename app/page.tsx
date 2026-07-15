@@ -6,7 +6,6 @@ import {
   Compass,
   BarChart3,
   BookOpen,
-  Users,
   ArrowRight,
   CheckCircle2,
 } from "lucide-react"
@@ -44,14 +43,6 @@ const features = [
     description:
       "Guardá las carreras que más te interesan para volver a verlas cuando quieras y organizarlas a tu manera.",
     href: "/mis-carreras",
-    badge: null,
-  },
-  {
-    icon: Users,
-    title: "Comunidad",
-    description:
-      "Leé experiencias de estudiantes y egresados, hacé preguntas y compartí tu opinión sobre las carreras.",
-    href: "/comunidad",
     badge: null,
   },
 ]

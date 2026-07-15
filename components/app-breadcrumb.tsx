@@ -14,12 +14,10 @@ import {
 import { useBreadcrumbLabels } from "@/components/breadcrumb-context"
 
 const routeLabels: Record<string, string> = {
-  dashboard: "Dashboard",
   carreras: "Explorar Carreras",
   "mis-carreras": "Mis Carreras",
   comparar: "Comparar",
   universidades: "Universidades",
-  comunidad: "Comunidad",
 }
 
 function isIdSegment(segment: string) {
