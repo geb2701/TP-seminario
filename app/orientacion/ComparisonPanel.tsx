@@ -1,11 +1,9 @@
 "use client"
 
 import { useMemo } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Cell } from "recharts"
+import { MetricBarChart } from "@/components/metric-bar-chart"
 import { AREA_EMOJIS, getCareerAffinity } from "./constants"
 import { PrestigeBadge, isPrestigious } from "@/components/prestige-badge"
 import { RecommendedBadge, isRecommended } from "@/components/recommended-badge"
@@ -21,6 +19,8 @@ export type CompareCareer = {
   area: { name: string }
   recommended: boolean
   recommendedRankLabel: string | null
+  avgRating: number | null
+  reviewCount: number
   studyPlans: {
     id: string
     year: number
@@ -34,73 +34,8 @@ const MODALITY_LABEL: Record<string, string> = {
   ONLINE: "Online",
 }
 
-const CHART_COLORS = ["var(--chart-1)", "var(--chart-2)", "var(--chart-3)", "var(--chart-4)"]
-
 function shortName(name: string) {
   return name.length > 18 ? name.substring(0, 16) + "…" : name
-}
-
-function MetricBarChart({
-  title,
-  data,
-  formatter,
-  tickFormatter,
-  domain,
-}: {
-  title: string
-  data: { name: string; shortName: string; value: number | null }[]
-  formatter?: (v: number) => string
-  tickFormatter?: (v: number) => string
-  domain?: [number, number]
-}) {
-  const chartConfig = Object.fromEntries(
-    data.map((d, i) => [d.shortName, { label: d.name, color: CHART_COLORS[i] }])
-  )
-  const chartData = data.map((d) => ({ name: d.shortName, value: d.value ?? 0 }))
-
-  return (
-    <Card>
-      <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <ChartContainer config={chartConfig} className="h-[180px] w-full [aspect-ratio:auto]">
-          <BarChart data={chartData} margin={{ top: 4, right: 0, left: 0, bottom: 4 }}>
-            <CartesianGrid vertical={false} strokeDasharray="3 3" />
-            <XAxis dataKey="name" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
-            <YAxis
-              tickLine={false}
-              axisLine={false}
-              tick={{ fontSize: 11 }}
-              domain={domain}
-              tickFormatter={tickFormatter ?? formatter}
-            />
-            <ChartTooltip
-              content={
-                <ChartTooltipContent
-                  formatter={(value) => formatter ? formatter(Number(value)) : String(value)}
-                />
-              }
-            />
-            <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-              {chartData.map((_, i) => <Cell key={i} fill={CHART_COLORS[i]} />)}
-            </Bar>
-          </BarChart>
-        </ChartContainer>
-        <div className="mt-3 space-y-1">
-          {data.map((d, i) => (
-            <div key={i} className="flex items-center gap-2 text-xs text-muted-foreground">
-              <span className="h-2 w-2 rounded-sm shrink-0" style={{ backgroundColor: CHART_COLORS[i] }} />
-              <span className="truncate">{d.name}</span>
-              <span className="ml-auto font-medium text-foreground shrink-0">
-                {d.value !== null ? (formatter ? formatter(d.value) : d.value) : "—"}
-              </span>
-            </div>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
-  )
 }
 
 export function ComparisonPanel({
@@ -122,11 +57,30 @@ export function ComparisonPanel({
   }, [data])
 
   const durationData = data?.map((c) => ({ name: c.name, shortName: shortName(c.name), value: c.durationYears })) ?? []
-  const subjectsData = data?.map((c) => ({
+
+  const ratingData = data?.map((c) => ({
     name: c.name,
     shortName: shortName(c.name),
-    value: c.studyPlans.reduce((sum, p) => sum + p.subjects.length, 0),
+    value: c.avgRating,
+    displayValue: c.reviewCount > 0
+      ? `${c.avgRating!.toFixed(1)} ★ (${c.reviewCount} reseña${c.reviewCount !== 1 ? "s" : ""})`
+      : "Sin reseñas",
   })) ?? []
+  const hasRatings = ratingData.some((d) => d.value !== null)
+
+  // El ranking QS es "menor = mejor": graficamos un puntaje invertido (1500 -
+  // rank) para que la barra más alta sea la universidad mejor posicionada.
+  // 1500 cubre el rango QS observado ("1401+" es el techo real).
+  const REFERENCE_MAX_RANK = 1500
+  const prestigeData = data?.map((c) => ({
+    name: c.name,
+    shortName: shortName(c.name),
+    value: c.university.qsRank !== null ? Math.max(REFERENCE_MAX_RANK - c.university.qsRank, 0) : null,
+    displayValue: c.university.qsRank !== null
+      ? `#${c.university.qsRankLabel ?? c.university.qsRank}`
+      : "Sin ranking",
+  })) ?? []
+  const hasRanking = prestigeData.some((d) => d.value !== null)
 
   const rows: { label: string; render: (c: CompareCareer) => React.ReactNode }[] = [
     { label: "Afinidad", render: (c) => {
@@ -240,7 +194,7 @@ export function ComparisonPanel({
       {!isLoading && data && data.length > 0 && (
         <section className="space-y-4">
           <h2 className="text-base font-semibold">Métricas comparativas</h2>
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <MetricBarChart
               title="Duración (años)"
               data={durationData}
@@ -248,12 +202,23 @@ export function ComparisonPanel({
               tickFormatter={(v) => String(v)}
               domain={[0, 7]}
             />
-            <MetricBarChart
-              title="Cantidad de materias"
-              data={subjectsData}
-              formatter={(v) => `${v} materia${v !== 1 ? "s" : ""}`}
-              tickFormatter={(v) => String(v)}
-            />
+            {hasRatings && (
+              <MetricBarChart
+                title="Calificación promedio"
+                data={ratingData}
+                formatter={(v) => `${v.toFixed(1)} ★`}
+                tickFormatter={(v) => String(v)}
+                domain={[0, 5]}
+              />
+            )}
+            {hasRanking && (
+              <MetricBarChart
+                title="Prestigio (ranking QS)"
+                caption="Más alto = mejor posición en el ranking QS mundial"
+                data={prestigeData}
+                tickFormatter={() => ""}
+              />
+            )}
           </div>
         </section>
       )}

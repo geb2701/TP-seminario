@@ -13,9 +13,8 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { cn } from "@/lib/utils"
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 import { useQuery } from "@tanstack/react-query"
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Cell } from "recharts"
+import { MetricBarChart } from "@/components/metric-bar-chart"
 import { useCompareCareers } from "@/hooks/use-compare-careers"
 import { ExportPDFButton, type CareerDetail } from "@/components/exportar"
 import { PrestigeBadge, isPrestigious } from "@/components/prestige-badge"
@@ -32,62 +31,6 @@ const MODALITY_LABEL: Record<string, string> = {
   PRESENCIAL: "Presencial",
   HIBRIDO: "Híbrido",
   ONLINE: "Online",
-}
-
-const CHART_COLORS = [
-  "var(--chart-1)",
-  "var(--chart-2)",
-  "var(--chart-3)",
-  "var(--chart-4)",
-]
-
-// ─── UI chart component ───────────────────────────────────────────────────────
-
-type MetricChartProps = {
-  title: string
-  data: { name: string; shortName: string; value: number | null }[]
-  formatter?: (v: number) => string
-  tickFormatter?: (v: number) => string
-  domain?: [number, number]
-}
-
-function MetricBarChart({ title, data, formatter, tickFormatter, domain }: MetricChartProps) {
-  const chartConfig = Object.fromEntries(
-    data.map((d, i) => [d.shortName, { label: d.name, color: CHART_COLORS[i] }])
-  )
-  const chartData = data.map((d) => ({ name: d.shortName, value: d.value ?? 0 }))
-
-  return (
-    <Card>
-      <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <ChartContainer config={chartConfig} className="h-[180px] w-full [aspect-ratio:auto]">
-          <BarChart data={chartData} margin={{ top: 4, right: 0, left: 0, bottom: 4 }}>
-            <CartesianGrid vertical={false} strokeDasharray="3 3" />
-            <XAxis dataKey="name" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
-            <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 11 }} domain={domain} tickFormatter={tickFormatter ?? formatter} />
-            <ChartTooltip content={<ChartTooltipContent formatter={(value) => formatter ? formatter(Number(value)) : String(value)} />} />
-            <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-              {chartData.map((_, i) => <Cell key={i} fill={CHART_COLORS[i]} />)}
-            </Bar>
-          </BarChart>
-        </ChartContainer>
-        <div className="mt-3 space-y-1">
-          {data.map((d, i) => (
-            <div key={i} className="flex items-center gap-2 text-xs text-muted-foreground">
-              <span className="h-2 w-2 rounded-sm shrink-0" style={{ backgroundColor: CHART_COLORS[i] }} />
-              <span className="truncate">{d.name}</span>
-              <span className="ml-auto font-medium text-foreground shrink-0">
-                {d.value !== null ? (formatter ? formatter(d.value) : d.value) : "—"}
-              </span>
-            </div>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
-  )
 }
 
 // ─── Main page ───────────────────────────────────────────────────────────────
@@ -176,16 +119,29 @@ export default function ComparePage() {
     return Array.from(years).sort((a, b) => a - b)
   }, [compared])
 
-  const subjectsData = compared?.map((c) => ({
+  const ratingData = compared?.map((c) => ({
     name: c.name,
     shortName: shortName(c.name),
-    value: c.studyPlans.reduce((sum, plan) => sum + plan.subjects.length, 0),
+    value: c.avgRating,
+    displayValue: c.reviewCount > 0
+      ? `${c.avgRating!.toFixed(1)} ★ (${c.reviewCount} reseña${c.reviewCount !== 1 ? "s" : ""})`
+      : "Sin reseñas",
   })) ?? []
+  const hasRatings = ratingData.some((d) => d.value !== null)
 
-  // El dataset actual no trae plan de estudios (materias): ocultamos ese
-  // gráfico cuando no hay datos. La "Calificación promedio" (notas académicas)
-  // no existe en el dataset, así que se quita del todo.
-  const hasSubjects = subjectsData.some((d) => d.value > 0)
+  // El ranking QS es "menor = mejor": graficamos un puntaje invertido (1500 -
+  // rank) para que la barra más alta sea la universidad mejor posicionada.
+  // 1500 cubre el rango QS observado ("1401+" es el techo real).
+  const REFERENCE_MAX_RANK = 1500
+  const prestigeData = compared?.map((c) => ({
+    name: c.name,
+    shortName: shortName(c.name),
+    value: c.university.qsRank !== null ? Math.max(REFERENCE_MAX_RANK - c.university.qsRank, 0) : null,
+    displayValue: c.university.qsRank !== null
+      ? `#${c.university.qsRankLabel ?? c.university.qsRank}`
+      : "Sin ranking",
+  })) ?? []
+  const hasRanking = prestigeData.some((d) => d.value !== null)
 
   return (
     <div className="space-y-8 p-6 lg:p-8">
@@ -462,12 +418,21 @@ export default function ComparePage() {
                       tickFormatter={(v) => String(v)}
                       domain={[0, 7]}
                     />
-                    {hasSubjects && (
+                    {hasRatings && (
                       <MetricBarChart
-                        title="Cantidad de materias"
-                        data={subjectsData}
-                        formatter={(v) => `${v} materia${v !== 1 ? "s" : ""}`}
+                        title="Calificación promedio"
+                        data={ratingData}
+                        formatter={(v) => `${v.toFixed(1)} ★`}
                         tickFormatter={(v) => String(v)}
+                        domain={[0, 5]}
+                      />
+                    )}
+                    {hasRanking && (
+                      <MetricBarChart
+                        title="Prestigio (ranking QS)"
+                        caption="Más alto = mejor posición en el ranking QS mundial"
+                        data={prestigeData}
+                        tickFormatter={() => ""}
                       />
                     )}
                   </div>

@@ -26,11 +26,12 @@ export async function GET(req: NextRequest) {
             },
           },
         },
+        reviews: { select: { rating: true } },
       },
     });
 
     const data = careers.map((c) => {
-      const { university, ...rest } = c;
+      const { university, reviews, ...rest } = c;
       const { ranking, subjectRankings, ...uRest } = university;
       const subject = deriveQsSubject(c.area.name, c.name);
       const subjectMatch = subject ? subjectRankings.find((s) => s.subject === subject) : undefined;
@@ -43,6 +44,8 @@ export async function GET(req: NextRequest) {
         },
         recommended: !!subjectMatch,
         recommendedRankLabel: subjectMatch?.rankLabel ?? null,
+        avgRating: reviews.length > 0 ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length : null,
+        reviewCount: reviews.length,
       };
     });
 

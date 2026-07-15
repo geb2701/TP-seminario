@@ -11,6 +11,8 @@ export type CareerDetail = {
   area: { id?: string; name: string }
   recommended: boolean
   recommendedRankLabel: string | null
+  avgRating: number | null
+  reviewCount: number
   studyPlans: {
     id: string
     year: number
@@ -25,6 +27,11 @@ const MODALITY_LABEL: Record<string, string> = {
 }
 
 export const PDF_COLORS = ["#4f46e5", "#7c3aed", "#0891b2", "#059669"]
+
+// El ranking QS es "menor = mejor": se grafica un puntaje invertido (REFERENCE_MAX_RANK -
+// rank) para que la barra más alta sea la universidad mejor posicionada. 1500 cubre el
+// rango QS observado ("1401+" es el techo real).
+const REFERENCE_MAX_RANK = 1500
 
 
 function PDFSectionTitle({ children }: { children: React.ReactNode }) {
@@ -56,9 +63,6 @@ function PDFMetricBar({
 }
 
 function PDFCareerCard({ career, color }: { career: CareerDetail; color: string }) {
-  const totalSubjects = career.studyPlans.reduce((s, p) => s + p.subjects.length, 0)
-  // "Materias" depende del plan de estudios, que el dataset actual no siempre trae:
-  // solo se muestra si hay datos.
   const fields: [string, string][] = [
     ["Área", career.area.name],
     ["Institución", career.university.type === "PUBLIC" ? "Pública" : "Privada"],
@@ -67,7 +71,6 @@ function PDFCareerCard({ career, color }: { career: CareerDetail; color: string 
     ["Modalidad", MODALITY_LABEL[career.modality]],
     ["Título", career.degreeTitle],
   ]
-  if (totalSubjects > 0) fields.push(["Materias", `${totalSubjects} en total`])
 
   return (
     <div style={{ border: `2px solid ${color}`, borderRadius: "10px", padding: "20px", backgroundColor: "#fafafa" }}>
@@ -109,11 +112,9 @@ export function PDFExportTemplate({ careers }: { careers: CareerDetail[] }) {
   const allYears = [...new Set(careers.flatMap((c) => c.studyPlans.map((p) => p.year)))].sort((a, b) => a - b)
 
   const maxDuration = Math.max(...careers.map((c) => c.durationYears), 1)
-  const maxSubjects = Math.max(...careers.map((c) => c.studyPlans.reduce((s, p) => s + p.subjects.length, 0)), 1)
 
-  // "Total de materias" depende del plan de estudios (ausente en el dataset
-  // actual): solo se incluye si hay datos.
-  const anySubjects = careers.some((c) => c.studyPlans.some((p) => p.subjects.length > 0))
+  const anyRatings = careers.some((c) => c.reviewCount > 0)
+  const anyRanking = careers.some((c) => c.university.qsRank !== null)
 
   const cardCols = careers.length <= 2 ? careers.length : 2
 
@@ -126,7 +127,8 @@ export function PDFExportTemplate({ careers }: { careers: CareerDetail[] }) {
     ["Duración", (c) => `${c.durationYears} años`],
     ["Modalidad", (c) => MODALITY_LABEL[c.modality]],
   ]
-  if (anySubjects) tableRows.push(["Total de materias", (c) => `${c.studyPlans.reduce((s, p) => s + p.subjects.length, 0)}`])
+  if (anyRatings) tableRows.push(["Calificación promedio", (c) => c.reviewCount > 0 ? `${c.avgRating!.toFixed(1)} ★ (${c.reviewCount} reseña${c.reviewCount !== 1 ? "s" : ""})` : "—"])
+  if (anyRanking) tableRows.push(["Ranking QS", (c) => c.university.qsRank !== null ? `#${c.university.qsRankLabel ?? c.university.qsRank}` : "—"])
   tableRows.push(["Recomendada", (c) => c.recommended ? (c.recommendedRankLabel ? `Sí (QS #${c.recommendedRankLabel})` : "Sí") : "—"])
 
   return (
@@ -247,12 +249,22 @@ export function PDFExportTemplate({ careers }: { careers: CareerDetail[] }) {
               <PDFMetricBar key={c.id} label={c.name} value={c.durationYears} max={maxDuration} color={PDF_COLORS[i]} format={(v) => `${v} año${v !== 1 ? "s" : ""}`} />
             ))}
           </div>
-          {anySubjects && (
+          {anyRatings && (
             <div>
-              <div style={{ fontSize: "12px", fontWeight: 600, color: "#374151", marginBottom: "12px" }}>Total de materias</div>
+              <div style={{ fontSize: "12px", fontWeight: 600, color: "#374151", marginBottom: "12px" }}>Calificación promedio</div>
+              {careers.map((c, i) => (
+                <PDFMetricBar key={c.id} label={c.name} value={c.avgRating ?? 0} max={5} color={PDF_COLORS[i]}
+                  format={() => c.reviewCount > 0 ? `${c.avgRating!.toFixed(1)} ★ (${c.reviewCount})` : "Sin reseñas"} />
+              ))}
+            </div>
+          )}
+          {anyRanking && (
+            <div>
+              <div style={{ fontSize: "12px", fontWeight: 600, color: "#374151", marginBottom: "12px" }}>Prestigio (ranking QS)</div>
               {careers.map((c, i) => {
-                const total = c.studyPlans.reduce((s, p) => s + p.subjects.length, 0)
-                return <PDFMetricBar key={c.id} label={c.name} value={total} max={maxSubjects} color={PDF_COLORS[i]} format={(v) => `${v} materia${v !== 1 ? "s" : ""}`} />
+                const score = c.university.qsRank !== null ? Math.max(REFERENCE_MAX_RANK - c.university.qsRank, 0) : 0
+                return <PDFMetricBar key={c.id} label={c.name} value={score} max={REFERENCE_MAX_RANK} color={PDF_COLORS[i]}
+                  format={() => c.university.qsRank !== null ? `#${c.university.qsRankLabel ?? c.university.qsRank}` : "Sin ranking"} />
               })}
             </div>
           )}
