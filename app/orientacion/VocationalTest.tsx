@@ -1336,6 +1336,13 @@ function IntroScreen({ onStart }: { onStart: () => void }) {
         Comenzar
         <ArrowRight className="size-4" />
       </Button>
+
+      {/* El test es de autoría propia: no deriva de CHASIDE ni de ningún otro
+          instrumento publicado (categorías, ítems y scoring son nuestros), así
+          que la leyenda no reclama validación externa. */}
+      <p className="text-xs text-muted-foreground/80 leading-relaxed max-w-md text-balance">
+        Test basado en inventarios de intereses vocacionales y modificado por UniFlow.
+      </p>
     </div>
   )
 }
