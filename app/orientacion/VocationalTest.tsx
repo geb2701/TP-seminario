@@ -65,11 +65,17 @@ const AREAS = [
 interface Phase1Question {
   text: string
   weights: Partial<Record<string, number>>
+  // Ítem de clave inversa (reverse-keyed): el enunciado expresa DESinterés, así
+  // que estar de acuerdo debe restar, no sumar. calcPhase1Scores invierte el
+  // valor (4 - respuesta) antes de aplicar los pesos. Sirven para controlar el
+  // sesgo de aquiescencia (responder "de acuerdo" a todo infla todas las áreas).
+  reversed?: boolean
 }
 
 // Pesos remapeados de las 8 áreas originales a las 6 ramas reales del SIU.
 // Cuando dos áreas viejas colapsan en una nueva (p. ej. Ingeniería y
 // Arquitectura -> Ciencias Aplicadas) los pesos se suman y se topean a 1.0.
+// Los ítems con `reversed: true` están intercalados a propósito (no agrupados).
 const PHASE1_QUESTIONS: Phase1Question[] = [
   {
     text: "Me resulta fácil entender cómo funcionan los aparatos o sistemas tecnológicos.",
@@ -78,6 +84,11 @@ const PHASE1_QUESTIONS: Phase1Question[] = [
   {
     text: "Disfruto ayudando a personas que atraviesan dificultades físicas o emocionales.",
     weights: { "Ciencias de la Salud": 1.0, "Ciencias Sociales": 0.5, "Ciencias Humanas": 0.5 },
+  },
+  {
+    text: "Me incomoda tratar con temas de enfermedad, cuerpos o el cuidado de pacientes.",
+    weights: { "Ciencias de la Salud": 1.0 },
+    reversed: true,
   },
   {
     text: "Me gusta analizar números, estadísticas o tendencias para tomar decisiones.",
@@ -92,6 +103,11 @@ const PHASE1_QUESTIONS: Phase1Question[] = [
     weights: { "Ciencias Aplicadas": 1.0, "Ciencias Humanas": 0.7 },
   },
   {
+    text: "Prefiero evitar las tareas técnicas, de programación o de armado de aparatos.",
+    weights: { "Ciencias Aplicadas": 1.0 },
+    reversed: true,
+  },
+  {
     text: "Me interesa conocer el funcionamiento interno del cuerpo humano o de los seres vivos.",
     weights: { "Ciencias de la Salud": 1.0, "Ciencias Básicas": 0.9 },
   },
@@ -104,8 +120,18 @@ const PHASE1_QUESTIONS: Phase1Question[] = [
     weights: { "Ciencias Sociales": 1.0, "Ciencias Aplicadas": 0.5 },
   },
   {
+    text: "Coordinar equipos, vender ideas o hablar en público me resulta agotador.",
+    weights: { "Ciencias Sociales": 1.0 },
+    reversed: true,
+  },
+  {
     text: "Me interesa la historia, la filosofía o las expresiones culturales de distintas sociedades.",
     weights: { "Ciencias Humanas": 1.0, "Ciencias Sociales": 0.9 },
+  },
+  {
+    text: "La historia, la filosofía y el análisis de la conducta humana me resultan aburridos.",
+    weights: { "Ciencias Humanas": 1.0 },
+    reversed: true,
   },
   {
     text: "Puedo visualizar mentalmente cómo quedaría un espacio o estructura antes de construirla.",
@@ -124,6 +150,11 @@ const PHASE1_QUESTIONS: Phase1Question[] = [
     weights: { "Ciencias Básicas": 1.0, "Ciencias de la Salud": 0.6, "Ciencias Aplicadas": 0.3 },
   },
   {
+    text: "Resolver problemas abstractos de matemática o ciencia me resulta tedioso.",
+    weights: { "Ciencias Básicas": 1.0 },
+    reversed: true,
+  },
+  {
     text: "Me motiva identificar oportunidades de negocio y llevar ideas innovadoras al mercado.",
     weights: { "Ciencias Sociales": 1.0, "Ciencias Aplicadas": 0.5 },
   },
@@ -138,6 +169,11 @@ const PHASE1_QUESTIONS: Phase1Question[] = [
   {
     text: "Tengo sensibilidad estética: la belleza, el diseño y las formas visuales me importan.",
     weights: { "Ciencias Aplicadas": 1.0, "Ciencias Humanas": 0.8, "Ciencias Sociales": 0.3 },
+  },
+  {
+    text: "No me interesa cómo se diseñan o construyen los edificios, las rutas o los espacios.",
+    weights: { "Ciencias Aplicadas": 1.0 },
+    reversed: true,
   },
   {
     text: "Me interesa entender cómo los sistemas económicos afectan a las personas y los países.",
@@ -355,12 +391,17 @@ const AREA_CAREER_QUESTIONS: Record<string, Phase2Question[]> = {
 
 // ─── Opciones de respuesta (Likert) ──────────────────────────────────────────
 
+// Escala de acuerdo (Likert): los enunciados son afirmaciones de interés/preferencia
+// ("Me interesa…", "Me apasiona…"), por lo que una escala de acuerdo encaja mejor
+// que una de frecuencia (Nunca…Siempre). Los valores numéricos siguen siendo 0–4:
+// el cálculo de puntajes, los perfiles guardados y los demos operan sobre esos
+// números, así que cambiar solo las etiquetas no altera ningún resultado.
 const OPTIONS = [
-  { value: 0, label: "Nunca", emoji: "😶" },
-  { value: 1, label: "Casi nunca", emoji: "🙁" },
-  { value: 2, label: "A veces", emoji: "😐" },
-  { value: 3, label: "Casi siempre", emoji: "🙂" },
-  { value: 4, label: "Siempre", emoji: "😄" },
+  { value: 0, label: "Totalmente en desacuerdo", emoji: "👎" },
+  { value: 1, label: "En desacuerdo", emoji: "🙁" },
+  { value: 2, label: "Ni de acuerdo ni en desacuerdo", emoji: "😐" },
+  { value: 3, label: "De acuerdo", emoji: "🙂" },
+  { value: 4, label: "Totalmente de acuerdo", emoji: "👍" },
 ]
 
 // ─── Cálculo de puntajes fase 1 ───────────────────────────────────────────────
@@ -371,7 +412,11 @@ function calcPhase1Scores(answers: Record<number, number>): Record<string, numbe
   AREAS.forEach((a) => { totals[a] = 0; maxTotals[a] = 0 })
 
   PHASE1_QUESTIONS.forEach((q, qi) => {
-    const answer = answers[qi] ?? 0
+    // Ítems reverse-keyed: se invierte (4 - respuesta). Solo si fue respondida,
+    // para que un ítem inverso sin responder siga aportando 0 (mismo criterio que
+    // los normales) y no inyecte un puntaje máximo con `4 - (undefined ?? 0)`.
+    const raw = answers[qi]
+    const answer = raw === undefined ? 0 : (q.reversed ? 4 - raw : raw)
     Object.entries(q.weights).forEach(([area, weight]) => {
       const w = weight ?? 0
       totals[area] = (totals[area] ?? 0) + answer * w
@@ -603,7 +648,12 @@ function buildPhase1AnswersForArea(primaryArea: string): Record<number, number> 
   const answers: Record<number, number> = {}
   PHASE1_QUESTIONS.forEach((q, i) => {
     const w = q.weights[primaryArea] ?? 0
-    answers[i] = w >= 0.9 ? 4 : w >= 0.6 ? 3 : w >= 0.3 ? 2 : 1
+    const base = w >= 0.9 ? 4 : w >= 0.6 ? 3 : w >= 0.3 ? 2 : 1
+    // En un ítem reverse-keyed que carga el área del perfil, "de acuerdo" restaría;
+    // por eso el perfil debe responder en desacuerdo (4 - base). calcPhase1Scores lo
+    // vuelve a invertir, así que el aporte al área se conserva y el persona mantiene
+    // su área top (Valentina -> Aplicadas, Tomás -> Salud).
+    answers[i] = q.reversed ? 4 - base : base
   })
   return answers
 }
@@ -1287,6 +1337,13 @@ function IntroScreen({ onStart }: { onStart: () => void }) {
         Comenzar
         <ArrowRight className="size-4" />
       </Button>
+
+      {/* El test es de autoría propia: no deriva de CHASIDE ni de ningún otro
+          instrumento publicado (categorías, ítems y scoring son nuestros), así
+          que la leyenda no reclama validación externa. */}
+      <p className="text-xs text-muted-foreground/80 leading-relaxed max-w-md text-balance">
+        Test basado en inventarios de intereses vocacionales y modificado por UniFlow.
+      </p>
     </div>
   )
 }
