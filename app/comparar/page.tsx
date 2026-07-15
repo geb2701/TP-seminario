@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils"
 import { useQuery } from "@tanstack/react-query"
 import { MetricBarChart } from "@/components/metric-bar-chart"
 import { useCompareCareers } from "@/hooks/use-compare-careers"
-import { ExportPDFButton, type CareerDetail } from "@/components/exportar"
+import { PaywallReport, type CareerDetail } from "@/components/exportar"
 import { PrestigeBadge, isPrestigious } from "@/components/prestige-badge"
 import { RecommendedBadge, isRecommended } from "@/components/recommended-badge"
 
@@ -153,8 +153,7 @@ export default function ComparePage() {
       </section>
 
       {selectedIds.length > 0 && (
-        <div className="flex justify-end gap-2">
-          <ExportPDFButton careers={compared} isLoading={isLoading} />
+        <div className="flex justify-end">
           <Button variant="destructive" onClick={clear} className="shrink-0">
             <Trash2 className="h-4 w-4 mr-2" />
             Limpiar selección
@@ -440,6 +439,15 @@ export default function ComparePage() {
               </AccordionItem>
             )}
           </Accordion>
+
+          <PaywallReport
+            careers={compared}
+            loading={isLoading}
+            paidScopeKey={selectedIds.join(",")}
+            storageKey="uniflow_compare_paid"
+            title="¿Querés llevarte esta comparación en PDF?"
+            description="Descargá un reporte con el perfil completo de cada carrera, la tabla lado a lado y los gráficos de esta comparación."
+          />
         </>
       )}
     </div>

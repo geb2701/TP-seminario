@@ -32,7 +32,7 @@ import { useCompareCareers } from "@/hooks/use-compare-careers"
 import { AREA_COLORS, AREA_EMOJIS, getCareerAffinity, careerGroupKey, buildReasons } from "./constants"
 import { CareerResultCard, orderUniversities, deriveSortContext, rowSortKeys, compareSortKeys, type CareerResult, type GroupedCareer } from "./CareerResultCard"
 import { type CompareCareer } from "./ComparisonPanel"
-import { PaywallReport } from "./PaywallReport"
+import { PaywallReport } from "@/components/exportar"
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
 
@@ -1252,6 +1252,7 @@ export function VocationalTest({
       saved={saved}
       personName={personName}
       onReset={reset}
+      savedAt={profile?.savedAt}
     />
   )
 }
@@ -1650,6 +1651,7 @@ function ResultsScreen({
   saved,
   personName,
   onReset,
+  savedAt,
 }: {
   sortedPhase1: [string, number][]
   top3Areas: string[]
@@ -1660,6 +1662,7 @@ function ResultsScreen({
   saved: boolean
   personName: string
   onReset: () => void
+  savedAt: string | undefined
 }) {
   const [selectedAreas, setSelectedAreas] = useState<Set<string>>(new Set())
   const { set: setCompareIds } = useCompareCareers()
@@ -1950,7 +1953,7 @@ function ResultsScreen({
       </section>
 
       {/* ── Reporte detallado (paywall mock) ── */}
-      <PaywallReport careers={reportCareers} loading={comparisonLoading} />
+      <PaywallReport careers={reportCareers} loading={comparisonLoading} paidScopeKey={savedAt} />
 
       {/* ── Perfil completo (radar) ── */}
       <section className="space-y-4">

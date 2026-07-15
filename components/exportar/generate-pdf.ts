@@ -1,7 +1,6 @@
 // Genera un PDF multipágina a partir de un elemento del DOM (el template oculto)
-// y lo descarga con el nombre indicado. Extraído de ExportPDFButton para que
-// tanto el botón directo (/comparar) como el paywall de resultados reusen la
-// misma lógica.
+// y lo descarga con el nombre indicado. La usa PaywallReport tanto en /comparar
+// como en los resultados de /orientacion.
 
 // Nombre del reporte: Reporte_DD_mm_YYYY_<uuid corto>.pdf
 export function buildReportFilename(): string {

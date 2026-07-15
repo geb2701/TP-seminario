@@ -3,10 +3,9 @@
 import { useEffect, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Loader2, CheckCircle2, FileDown, Sparkles } from "lucide-react"
-import { useVocationalProfile } from "@/hooks/use-vocational-profile"
-import { PDFExportTemplate, exportElementToPdf, buildReportFilename, type CareerDetail } from "@/components/exportar"
+import { PDFExportTemplate, type CareerDetail } from "./pdf-template"
+import { exportElementToPdf, buildReportFilename } from "./generate-pdf"
 
-const PAID_KEY = "uniflow_report_paid"
 const PRICE = "ARS 15.000,00"
 
 type Phase = "idle" | "processing" | "ready" | "paid"
@@ -14,24 +13,34 @@ type Phase = "idle" | "processing" | "ready" | "paid"
 export function PaywallReport({
   careers,
   loading = false,
+  paidScopeKey,
+  storageKey = "uniflow_report_paid",
+  title = "¿Querés un análisis más completo?",
+  description = "Accedé a un reporte detallado de tus resultados con la comparación a fondo de las mejores universidades para tu carrera más compatible, en PDF.",
+  ctaLabel = "Recibir mi reporte",
 }: {
   careers?: CareerDetail[]
   loading?: boolean
+  /** Identifica la versión del reporte que se pagó (p.ej. el perfil guardado o el set de carreras comparadas). Un valor distinto vuelve a pedir el pago. */
+  paidScopeKey?: string
+  /** Clave de localStorage donde se recuerda el pago. Cada superficie (orientación, comparador) usa la suya para no pisarse. */
+  storageKey?: string
+  title?: string
+  description?: string
+  ctaLabel?: string
 }) {
   const pdfRef = useRef<HTMLDivElement>(null)
   const timers = useRef<ReturnType<typeof setTimeout>[]>([])
-  const { profile } = useVocationalProfile()
-  const savedAt = profile?.savedAt
 
   const [phase, setPhase] = useState<Phase>("idle")
 
-  // El pago queda atado al savedAt del perfil: un test nuevo (o un localStorage
-  // vacío) genera otro savedAt y vuelve a pedir el pago. Sin tocar reset().
+  // El pago queda atado a paidScopeKey: un valor nuevo (u otro reporte) vuelve
+  // a pedir el pago.
   useEffect(() => {
     if (typeof window === "undefined") return
-    const paidFor = localStorage.getItem(PAID_KEY)
-    setPhase(savedAt && paidFor === savedAt ? "paid" : "idle")
-  }, [savedAt])
+    const paidFor = localStorage.getItem(storageKey)
+    setPhase(paidScopeKey && paidFor === paidScopeKey ? "paid" : "idle")
+  }, [paidScopeKey, storageKey])
 
   // Limpia timers pendientes al desmontar.
   useEffect(() => () => { timers.current.forEach(clearTimeout) }, [])
@@ -52,7 +61,7 @@ export function PaywallReport({
         timers.current.push(
           setTimeout(async () => {
             await downloadPdf()
-            if (savedAt) localStorage.setItem(PAID_KEY, savedAt)
+            if (paidScopeKey) localStorage.setItem(storageKey, paidScopeKey)
             setPhase("paid")
           }, 1000)
         )
@@ -98,12 +107,9 @@ export function PaywallReport({
           <div className="space-y-4">
             <div className="flex items-center gap-2">
               <Sparkles className="size-5 text-primary" />
-              <h2 className="text-lg font-semibold">¿Querés un análisis más completo?</h2>
+              <h2 className="text-lg font-semibold">{title}</h2>
             </div>
-            <p className="text-sm text-muted-foreground">
-              Accedé a un reporte detallado de tus resultados con la comparación a fondo de las
-              mejores universidades para tu carrera más compatible, en PDF.
-            </p>
+            <p className="text-sm text-muted-foreground">{description}</p>
             <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <span className="text-xs uppercase tracking-wide text-muted-foreground">Precio único</span>
@@ -111,7 +117,7 @@ export function PaywallReport({
               </div>
               <Button size="lg" onClick={startMockPayment} disabled={!hasData} className="gap-2">
                 <FileDown className="size-4" />
-                Recibir mi reporte
+                {ctaLabel}
               </Button>
             </div>
             {!hasData && (
@@ -132,7 +138,7 @@ export function PaywallReport({
       )}
 
       {/* Template oculto del PDF: clip 0×0 para que no se vea pero html-to-image
-          lo capture a tamaño completo (mismo patrón que ExportPDFButton). */}
+          lo capture a tamaño completo. */}
       {hasData && (
         <div
           style={{ position: "fixed", top: 0, left: 0, width: 0, height: 0, overflow: "hidden", pointerEvents: "none" }}
